@@ -1,0 +1,27 @@
+I asked Claude to build a Mac screensaver. It built me a universe.
+
+I've been a Windows guy forever (with plenty of *nix), but I set up a Mac Mini Pro for one reason: to build with — and abuse — Claude and other AI tools. Before pointing it at real work, I wanted a calibration test with real moving parts: native macOS APIs, GPU code, system integration.
+
+The test: "Build a procedural screensaver where I fly through galaxies, past planets, with warp jumps between them. Then install it." No Xcode project, no template, no assets. Go.
+
+One session later, Claude's Fable model delivered the coolest screensaver I've ever run:
+
+• The Milky Way growing from a single pixel (real NASA imagery) into a volumetric, ray-marched galactic disk you fly through, mini solar systems drifting past
+• Flybys of procedural planets — terran, ringed gas giants, lava, ice — lit by their own suns, sometimes binary pairs
+• Star Wars-style warp jumps into new regions
+• Rare encounters: lensing black holes, comet swarms, and Dyson spheres in three build stages — including one you fly INTO, skimming the oceans and mountain ranges of its inner surface
+• Optional starship HUD: velocity, heading, sectors, warp telemetry
+• NASA deep-field photos, properly credited and logo-free
+
+All generated live by one Metal shader. No video files. No two runs the same.
+
+What impressed me most was watching it work. It built its own test harness, looked at its own rendered frames, and iterated: "nebula too foggy" — fix, re-render, check. When I reported stars flying the wrong way, it found a sign error in the projection math and fixed it everywhere. It benchmarked the GPU per scene to hold 60fps, and even caught macOS silently reverting my second monitor to a built-in saver — then wrote a script so it can't happen again.
+
+Fit and finish remains, but it's fully running today: dual screen, HUD on/off, planets sliding by, warp tunnels lighting up the office — for about 90% of one 5-hour plan window.
+
+Lifelong Windows/*nix person, Mac bought to stress-test AI: test passed.
+
+MIT-licensed, one command to install:
+https://github.com/WowWashington/Mac-to-the-stars-screensaver
+
+Built with Claude (Fable 5). Images courtesy NASA — no endorsement implied.
