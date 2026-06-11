@@ -18,6 +18,21 @@ and are works of the U.S. Government, not subject to copyright
 | PIA10748-milkyway~large.jpg | PIA10748 | NASA/JPL-Caltech (R. Hurt) — face-on Milky Way artist concept; used for the opening galaxy view |
 | hubble-observes-one-of-a-kind-star-nicknamed-nasty_*.jpg | (Hubble, via images.nasa.gov) | NASA/ESA/Hubble |
 
+## Public-domain stock (publicdomainpictures.net, uploader-declared CC0)
+
+Sourced by the owner from publicdomainpictures.net, which publishes
+uploads under a public-domain/CC0 declaration. Weaker paper trail than the
+NASA archive (uploader-asserted), noted here transparently. Two are visually
+identifiable as re-hosts of famous Hubble observations, which strengthens
+their public-domain status.
+
+| File | Source | Notes |
+|------|--------|-------|
+| milky-way-faceon.jpg | publicdomainpictures.net image 180438 | face-on Milky Way artist impression; used in the galaxy-approach pool |
+| galaxy-ngc1672-hubble.jpg | publicdomainpictures.net (re-host) | recognizably Hubble's NGC 1672 — credit NASA/ESA/Hubble Heritage |
+| crab-nebula-hubble.jpg | publicdomainpictures.net (re-host) | recognizably Hubble's Crab Nebula mosaic — credit NASA/ESA/ASU (J. Hester & A. Loll) |
+| nebula-art-cc0.jpg | publicdomainpictures.net | digital space art, CC0 |
+
 ## Rules followed for any image added here
 
 1. Source it from https://images.nasa.gov (or another NASA site) and record
@@ -33,7 +48,6 @@ and are works of the U.S. Government, not subject to copyright
 
 ## unverified/
 
-Files in `unverified/` did NOT come from a NASA archive (stock-wallpaper
-naming, saved web pages, unknown provenance) or contain NASA logos. They are
-EXCLUDED from the build and must not be distributed unless provenance is
-established. Verify or replace them with images.nasa.gov originals.
+Files in `unverified/` are excluded from the build: `galaxy-full-moon.jpg`
+(composite artwork — clashes with the saver's realism style) and a saved
+NASA webpage whose assets include NASA logos (which must never be bundled).
