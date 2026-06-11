@@ -36,6 +36,10 @@ subtype, scn.z = free per-subtype param) and the subtype ranges in Director.
 - **Nothing pops in**: every body starts as a distant dot (planets z≥17, structures
   z≥19) and grows. Crossfades are 4.5s; warp is the only "cut".
 - **Scenes must average < ~12ms** at QHD (bench it) so two-scene crossfades hold 60fps.
+  `starLayer` (3x3 neighbor scan) costs ~1.5ms per call — for stacked fly-through
+  layers use the single-cell `starLayerFast`/`systemLayer` (~9x cheaper). Bench
+  numbers are inflated when the user is actively using the GPU — compare against
+  an untouched scene from the same run before reacting.
 - **Screensaver selection** (macOS 14+): all Idle entries in the wallpaper store
   must use provider `com.apple.NeptuneOneExtension`. System Settings sometimes
   rewrites them → `python3 select_saver.py && killall WallpaperAgent`
