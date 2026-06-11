@@ -8,7 +8,7 @@
 
 - **Language/Stack**: Swift 5 mode (Swift 6.3 toolchain), Metal fragment shader (compiled at runtime via `makeLibrary(source:)` — no Xcode project needed)
 - **Dependencies**: none (system frameworks only: ScreenSaver, Metal, QuartzCore, AppKit)
-- **Repo**: local git repo (main), GitHub publication planned under MIT
+- **Repo**: https://github.com/WowWashington/Mac-to-the-stars-screensaver (public, MIT)
 - **Local path**: `/Users/automator/Projects/Mac-StarsScreenSaver/`
 
 ---
