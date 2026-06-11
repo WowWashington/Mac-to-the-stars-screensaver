@@ -82,7 +82,12 @@ var cases: [(String, Uniforms)] = [
     ("21_system_c",        uni(type: .planet, t: 22, seed: 777, subtype: 2, dur: 42, pal: palBlue)),
     ("10_warp_mid",        uni(type: .warp,   t: 4.5, seed: 77, dur: 9, pal: palTeal)),
     ("11_warp_flash",      uni(type: .warp,   t: 8.4, seed: 77, dur: 9, pal: palBlue)),
-    ("13_dyson_mid",       uni(type: .encounter, t: 16, seed: 642, subtype: 0, dur: 30, pal: palWarm)),
+    ("13_dyson_mid",       uni(type: .encounter, t: 16, seed: 642, subtype: 0, flags: 1, dur: 30, pal: palWarm)),
+    ("23_dyson_ring",      uni(type: .encounter, t: 18, seed: 451, subtype: 0, flags: 0, dur: 32, pal: palWarm)),
+    ("24_dyson_partial",   uni(type: .encounter, t: 24, seed: 642, subtype: 0, flags: 1, dur: 34, pal: palBlue)),
+    ("25_dyson_interior",  uni(type: .encounter, t: 33, seed: 933, subtype: 0, flags: 2, dur: 56, pal: palBlue)),
+    ("26_dyson_entry",     uni(type: .encounter, t: 24.5, seed: 933, subtype: 0, flags: 2, dur: 56, pal: palBlue)),
+    ("27_dyson_swarm",     uni(type: .encounter, t: 16, seed: 318, subtype: 3, dur: 32, pal: palTeal)),
     ("14_blackhole_mid",   uni(type: .encounter, t: 17, seed: 271, subtype: 1, dur: 30, pal: palBlue)),
     ("15_comets_mid",      uni(type: .encounter, t: 15, seed: 909, subtype: 2, dur: 30, pal: palTeal)),
 ]
@@ -172,6 +177,48 @@ do {
     }
 } catch {
     print("deepfield case failed: \(error)")
+}
+
+// ---- GPU cost benchmark at QHD (the saver's render cap) ----
+if CommandLine.arguments.contains("--bench") {
+    let bW = 2560, bH = 1440
+    let bdesc = MTLTextureDescriptor.texture2DDescriptor(
+        pixelFormat: .bgra8Unorm, width: bW, height: bH, mipmapped: false)
+    bdesc.usage = [.renderTarget]
+    bdesc.storageMode = .private
+    let btex = renderer.device.makeTexture(descriptor: bdesc)!
+    func bench(_ name: String, _ base: Uniforms) {
+        var total = 0.0
+        let frames = 40
+        for i in 0..<(frames + 5) {
+            var u = base
+            u.resolution = SIMD2(Float(bW), Float(bH))
+            u.time += Float(i) * 0.016
+            u.sceneTime += Float(i) * 0.016
+            u.prevSceneTime += Float(i) * 0.016
+            guard let cb = renderer.encode(into: btex, uniforms: u) else { continue }
+            cb.commit()
+            cb.waitUntilCompleted()
+            if i >= 5 { total += (cb.gpuEndTime - cb.gpuStartTime) }
+        }
+        let label = name.padding(toLength: 24, withPad: " ", startingAt: 0)
+        print(String(format: "bench \(label) %6.2f ms/frame", total / Double(frames) * 1000.0))
+    }
+    bench("cruise", uni(type: .cruise, t: 12, seed: 137, subtype: 1.0, pal: palBlue))
+    bench("galaxy_mid", uni(type: .galaxy, t: 18, seed: 412, dur: 32, pal: palTeal))
+    bench("system_rings", uni(type: .planet, t: 20, seed: 251, subtype: 1, flags: 1, dur: 42, pal: palWarm))
+    bench("warp", uni(type: .warp, t: 4.5, seed: 77, dur: 9, pal: palTeal))
+    bench("blackhole", uni(type: .encounter, t: 17, seed: 271, subtype: 1, dur: 30, pal: palBlue))
+    bench("dyson_ring", uni(type: .encounter, t: 18, seed: 451, subtype: 0, flags: 0, dur: 32, pal: palWarm))
+    bench("dyson_interior", uni(type: .encounter, t: 33, seed: 933, subtype: 0, flags: 2, dur: 56, pal: palBlue))
+    bench("dyson_swarm", uni(type: .encounter, t: 16, seed: 318, subtype: 3, dur: 32, pal: palTeal))
+    bench("comets", uni(type: .encounter, t: 15, seed: 909, subtype: 2, dur: 30, pal: palTeal))
+    var btrans = uni(type: .warp, t: 1.0, seed: 77, dur: 9, pal: palTeal)
+    btrans.prevSceneType = SceneKind.planet.rawValue
+    btrans.scnB = SIMD4(251, 1, 1, 42)
+    btrans.prevSceneTime = 20
+    btrans.transition = 0.5
+    bench("transition_worstcase", btrans)
 }
 
 writeHUDComposite("17_hud_warp",

@@ -214,9 +214,9 @@ float3 cruiseScene(float2 uv, float t, float4 scn, float4 pal, float gt) {
     float3 col = spaceBG(uv * 0.7, seed, pal, gt, 0.5);
 
     // fly-through star layers expanding outward
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < 6; i++) {
         float fi = float(i);
-        float ph = fract(fi / 8.0 - t * 0.045 * speed + hash11(seed + fi) * 0.9);
+        float ph = fract(fi / 6.0 - t * 0.045 * speed + hash11(seed + fi) * 0.9);
         float depth = 0.05 + 0.95 * ph;        // 1 = far, ->0 = passing camera
         // q = uv * depth: as depth shrinks the pattern magnifies, so stars
         // stream OUTWARD past the camera (toward us), never inward
@@ -631,76 +631,374 @@ float3 warpScene(float2 uv, float t, float4 scn, float4 pal, float gt) {
 
 // ---------- scene 4: rare encounters ----------
 
-float3 dysonScene(float2 uv, float t, float seed, float4 pal, float gt, float dur) {
-    float prog = clamp(t / dur, 0.0, 1.0);
-    float sp = smoothstep(0.0, 1.0, prog);
+// shared panel texture for megastructures; openWeight 0..1 raises gap count
+float3 panelTex(float2 p2, float seed, float gt, thread bool &open, float openWeight) {
+    float3 warm = float3(1.0, 0.82, 0.5);
+    float row = floor(p2.y);
+    p2.x += step(0.5, fract(row * 0.5)) * 0.5;   // brick offset
+    float2 id = float2(floor(p2.x), row);
+    float2 f = float2(fract(p2.x), fract(p2.y));
+    float h = hash21(id + seed * 7.0);
+    float big = hash21(floor(id / 3.0) + seed * 13.0);
+    float flick = 0.92 + 0.08 * sin(gt * 3.0 + h * 40.0);
+    open = (h < 0.08 + 0.1 * openWeight) || (big > 0.94 - 0.05 * openWeight);
+    if (open) {
+        float edgeSoft = smoothstep(0.0, 0.10, min(min(f.x, 1.0 - f.x), min(f.y, 1.0 - f.y)));
+        return warm * (5.5 * edgeSoft + 0.9) * flick;
+    }
+    float albedo = mix(0.012, 0.045, hash21(id + seed * 3.0));
+    float3 metal = float3(albedo) * float3(0.85, 0.92, 1.05);
+    float bmin = min(min(f.x, 1.0 - f.x), min(f.y, 1.0 - f.y));
+    float seam = smoothstep(0.045, 0.0, bmin);
+    float win = step(0.993, hash21(floor(f * 9.0) + id * 5.0 + seed));
+    return metal + float3(1.0, 0.45, 0.12) * seam * 0.55 * flick + warm * win * 0.28;
+}
 
+// exterior of a (possibly partial) dyson shell. coverage 1 = complete.
+float3 dysonExterior(float2 uv, float ap, float seed, float4 pal, float gt, float coverage) {
     float3 rd = normalize(float3(uv, 1.45));
     float2 rxy = rot2(0.04 * sin(gt * 0.037) + gt * 0.002) * rd.xy;
     rd.x = rxy.x; rd.y = rxy.y;
 
+    float sp = smoothstep(0.0, 1.0, ap);
     float side = hash11(seed * 9.3) > 0.5 ? 1.0 : -1.0;
     float R = 2.6;
     float3 C;
-    C.z = mix(22.0, -3.5, sp);
-    C.x = side * (0.2 + 2.6 * sp * sp * sp);
-    C.y = 0.15 * sin(prog * 2.7 + seed) - 0.05;
+    C.z = mix(22.0, 1.2, sp);                      // journeys end AT the shell
+    C.x = side * 0.25 * (1.0 - sp);
+    C.y = 0.12 * sin(ap * 2.7 + seed) * (1.0 - sp);
 
     float3 col = spaceBG(uv + seed * 2.0, seed + 4.0, pal, gt, 0.35);
     float3 warm = float3(1.0, 0.82, 0.5);
 
     float3 oc = -C;
     float b = dot(oc, rd);
-    float cc = dot(oc, oc) - R * R;
-    float h2 = b * b - cc;
-    bool hit = false;
-    float tS = 0.0;
+    float h2 = b * b - (dot(oc, oc) - R * R);
+    bool solidHit = false;
     if (h2 > 0.0) {
-        tS = -b - sqrt(h2);
-        if (tS > 0.0) hit = true;
-    }
-    if (hit) {
-        float3 pos = rd * tS;
-        float3 n = normalize(pos - C);
-        float3 ns = n;
-        float2 nxz = rot2(gt * 0.012) * float2(ns.x, ns.z);
-        ns.x = nxz.x; ns.z = nxz.y;
-        float lat = asin(clamp(ns.y, -1.0, 1.0));
-        float lon = atan2(ns.z, ns.x);
-
-        float2 p2 = float2(lon * 7.0, lat * 8.0);
-        float row = floor(p2.y);
-        p2.x += step(0.5, fract(row * 0.5)) * 0.5;   // brick-offset panels
-        float2 id = float2(floor(p2.x), row);
-        float2 f = float2(fract(p2.x), fract(p2.y));
-        float h = hash21(id + seed * 7.0);
-        float big = hash21(floor(id / 3.0) + seed * 13.0);
-        float flick = 0.92 + 0.08 * sin(gt * 3.0 + h * 40.0);
-
-        if (h < 0.10 || big > 0.93) {
-            // missing panel: the captive star blazes through
-            float edgeSoft = smoothstep(0.0, 0.10, min(min(f.x, 1.0 - f.x), min(f.y, 1.0 - f.y)));
-            col = warm * (5.5 * edgeSoft + 0.9) * flick;
-        } else {
-            float albedo = mix(0.012, 0.045, hash21(id + seed * 3.0));
-            float3 metal = float3(albedo) * float3(0.85, 0.92, 1.05);
-            metal *= 0.6 + 0.7 * fbm(ns * 2.0 + seed, 3);
-            float bmin = min(min(f.x, 1.0 - f.x), min(f.y, 1.0 - f.y));
-            float seam = smoothstep(0.045, 0.0, bmin);
-            float win = step(0.993, hash21(floor(f * 9.0) + id * 5.0 + seed));
-            col = metal + float3(1.0, 0.45, 0.12) * seam * 0.55 * flick + warm * win * 0.28;
+        float tS = -b - sqrt(h2);
+        if (tS > 0.0) {
+            float3 pos = rd * tS;
+            float3 n = normalize(pos - C);
+            float3 ns = n;
+            float2 nxz = rot2(gt * 0.012) * float2(ns.x, ns.z);
+            ns.x = nxz.x; ns.z = nxz.y;
+            // construction coverage: unbuilt region exposes the star
+            float built = fbm(ns * 1.3 + seed * 3.0, 3);
+            bool inBuilt = built < coverage;
+            if (inBuilt) {
+                float lat = asin(clamp(ns.y, -1.0, 1.0));
+                float lon = atan2(ns.z, ns.x);
+                bool open;
+                col = panelTex(float2(lon * 7.0, lat * 8.0), seed, gt, open, 0.0);
+                solidHit = !open;
+                // glowing construction scaffold near the ragged edge
+                float edge = smoothstep(0.10, 0.0, abs(built - coverage));
+                col += float3(1.0, 0.5, 0.15) * edge * (0.8 + 0.2 * sin(gt * 4.0 + built * 60.0));
+                float fres = pow(1.0 - max(dot(n, -rd), 0.0), 3.0);
+                col += warm * fres * 0.7;
+            }
         }
-        float fres = pow(1.0 - max(dot(n, -rd), 0.0), 3.0);
-        col += warm * fres * 0.7;
-    } else {
-        float3 closest = rd * max(-b, 0.0);
-        float3 cv = closest - C;
-        float dmin = length(cv);
-        // leaked light halo with soft shafts
-        float halo = exp(-max(dmin - R, 0.0) * 4.0 / R);
-        float shaft = 0.5 + 0.5 * fbm(float3(normalize(cv + 1e-4).xy * 3.0, seed * 5.0 + gt * 0.05), 3);
-        col += warm * halo * 0.45 * shaft;
     }
+    if (!solidHit) {
+        // star inside, visible through gaps / unbuilt regions
+        float3 sv = C;
+        float sd = length(sv);
+        float dca = length(cross(rd, sv));
+        if (dot(rd, normalize(sv)) > 0.0) {
+            float Rs = 0.62;
+            float disc = smoothstep(Rs + 0.02 * sd, Rs - 0.02 * sd, dca);
+            col = mix(col, warm * 3.2, disc);
+            col += warm * exp(-max(dca - Rs, 0.0) * 2.2) * 0.5;
+        }
+        float3 cv = rd * max(-b, 0.0) - C;
+        float halo = exp(-max(length(cv) - R, 0.0) * 4.0 / R);
+        float shaft = 0.5 + 0.5 * fbm(float3(normalize(cv + 1e-4).xy * 3.0, seed * 5.0 + gt * 0.05), 3);
+        col += warm * halo * 0.4 * shaft;
+    }
+    return col;
+}
+
+// thick rim of an opening rushing past as we cross the shell wall
+float3 dysonRim(float2 uv, float t, float seed, float gt, float dirSign) {
+    float r = length(uv) + 0.12;
+    float a = atan2(uv.y, uv.x);
+    float z = 0.8 / r + dirSign * t * 5.0;
+    float2 pc = float2(a * 8.0, z * 1.2);
+    float2 id = floor(pc);
+    float2 f = fract(pc);
+    float h = hash21(id + seed);
+    float3 metal = float3(0.030, 0.034, 0.045) * (0.4 + 0.8 * h);
+    float bmin = min(min(f.x, 1.0 - f.x), min(f.y, 1.0 - f.y));
+    float strip = smoothstep(0.06, 0.0, bmin);
+    float3 col = metal * exp(-r * 0.5);
+    col += float3(1.0, 0.42, 0.10) * strip * exp(-r * 0.7) * (0.7 + 0.3 * sin(gt * 6.0 + h * 20.0));
+    // light spilling through the bore
+    col += float3(1.0, 0.85, 0.55) * exp(-r * 3.5) * 0.45;
+    return col;
+}
+
+float interiorH(float2 xz, float seed) {
+    float h = fbm(float3(xz * 0.32, seed * 7.0), 5);
+    float rdg = ridged(float3(xz * 0.20 + 11.0, seed * 3.0), 4);
+    return mix(h, rdg, 0.45);
+}
+
+// inside the completed sphere: skim the inner surface — ocean, ranges, cities —
+// with the captive sun overhead and the far shell as the "sky"
+float3 dysonInterior(float2 uv, float t, float seed, float4 pal, float gt) {
+    float3 rd = normalize(float3(uv, 1.45));
+    float2 rxy = rot2(0.05 * sin(gt * 0.05)) * rd.xy;
+    rd.x = rxy.x; rd.y = rxy.y;
+    rd.y += 0.06 * sin(t * 0.18 + seed);          // gentle altitude swells
+    rd = normalize(rd);
+
+    float3 sunDir = normalize(float3(0.10, 1.0, 0.14));
+    float2 fwd = float2(t * 1.5, t * 0.22);       // ground speed
+    float3 col;
+
+    if (rd.y < -0.015) {
+        float tg = -1.25 / rd.y;
+        float2 xz = fwd + rd.xz * tg;
+        float h = interiorH(xz, seed);
+        float e = 0.22;
+        float hx = interiorH(xz + float2(e, 0.0), seed);
+        float hz = interiorH(xz + float2(0.0, e), seed);
+        // amplified slopes so ranges throw real relief shading
+        float3 n = normalize(float3((h - hx) * 9.0, 1.0, (h - hz) * 9.0));
+        float sea = 0.42;
+        float3 gcol;
+        float oce = 0.0;
+        if (h < sea) {
+            gcol = mix(float3(0.008, 0.05, 0.12), float3(0.03, 0.18, 0.26),
+                       smoothstep(sea - 0.25, sea, h));
+            n = normalize(float3(0.0, 1.0, 0.0) + 0.04 * float3(sin(xz.x * 3.0 + gt), 0.0, cos(xz.y * 2.7 + gt)));
+            oce = 1.0;
+        } else {
+            float3 low = mix(float3(0.07, 0.22, 0.06), float3(0.32, 0.26, 0.14),
+                             smoothstep(sea, sea + 0.25, h));
+            gcol = mix(low, float3(0.90, 0.93, 1.0), smoothstep(sea + 0.32, sea + 0.44, h));
+        }
+        float dif = max(dot(n, sunDir), 0.0);
+        col = gcol * (0.08 + 1.35 * dif * dif);
+        float spec = pow(max(dot(reflect(-sunDir, n), -rd), 0.0), 90.0);
+        col += float3(1.0, 0.95, 0.8) * spec * oce * 0.9;
+        // habitat lights / arcology clusters on land
+        float2 cid = floor(xz * 0.55);
+        float ch = hash21(cid + seed * 9.0);
+        if (ch > 0.84 && h > sea) {
+            float2 cf = fract(xz * 0.55) - 0.5;
+            float d2c = dot(cf, cf);
+            col += float3(1.0, 0.75, 0.45) * exp(-d2c * 55.0) * (0.7 + 0.3 * sin(gt * 1.7 + ch * 40.0));
+        }
+        float fog = 1.0 - exp(-tg * 0.020);
+        col = mix(col, float3(0.36, 0.45, 0.65) * 0.40, fog);
+    } else {
+        // interior "sky": haze, the far side of the shell, and the sun
+        float up = clamp(rd.y, 0.0, 1.0);
+        col = mix(float3(0.24, 0.31, 0.46) * 0.38, float3(0.06, 0.08, 0.16), up);
+        float farShell = fbm(float3(rd.xz * 2.6 / (0.25 + rd.y) + fwd * 0.01, seed * 5.0), 4);
+        col += float3(0.20, 0.27, 0.24) * farShell * up * 0.30;   // faint far continents
+        float sg = max(dot(rd, sunDir), 0.0);
+        col += float3(1.0, 0.92, 0.75) * (pow(sg, 900.0) * 4.0 + pow(sg, 30.0) * 0.35 + pow(sg, 6.0) * 0.10);
+    }
+    // horizon haze band
+    col += float3(0.9, 0.75, 0.55) * exp(-abs(rd.y) * 26.0) * 0.10;
+    return col;
+}
+
+// Niven-ring stage: a colossal rotating band around the star
+float3 dysonRing(float2 uv, float t, float seed, float4 pal, float gt, float dur) {
+    float prog = clamp(t / dur, 0.0, 1.0);
+    float sp = smoothstep(0.0, 1.0, prog);
+    float3 ro = float3(0.0);
+    float3 rd = normalize(float3(uv, 1.45));
+    float2 rxy = rot2(0.04 * sin(gt * 0.041) + gt * 0.0025) * rd.xy;
+    rd.x = rxy.x; rd.y = rxy.y;
+
+    float side = hash11(seed * 9.3) > 0.5 ? 1.0 : -1.0;
+    float3 S = float3(side * (0.3 + 1.6 * sp * sp), 0.1 * sin(prog * 3.0 + seed), mix(19.0, -3.0, sp));
+    float3 axis = normalize(float3(0.30 * sin(seed * 2.0), 1.0, 0.22 * cos(seed * 5.0)));
+    float Rb = 3.1;
+    float halfW = 0.55;
+
+    float3 col = spaceBG(uv + seed * 3.0, seed + 4.0, pal, gt, 0.35);
+    float3 warm = float3(1.0, 0.82, 0.5);
+
+    // infinite-cylinder intersection, then clamp to band width
+    float3 oc = ro - S;
+    float3 ocp = oc - dot(oc, axis) * axis;
+    float3 rdp = rd - dot(rd, axis) * axis;
+    float A = dot(rdp, rdp);
+    float tHit = -1.0;
+    bool inner = false;
+    if (A > 1e-5) {
+        float B = 2.0 * dot(ocp, rdp);
+        float Cq = dot(ocp, ocp) - Rb * Rb;
+        float disc = B * B - 4.0 * A * Cq;
+        if (disc > 0.0) {
+            float sq = sqrt(disc);
+            float t0 = (-B - sq) / (2.0 * A);
+            float t1 = (-B + sq) / (2.0 * A);
+            float ax0 = dot(oc + rd * t0, axis);
+            float ax1 = dot(oc + rd * t1, axis);
+            if (t0 > 0.0 && abs(ax0) < halfW) { tHit = t0; inner = false; }
+            else if (t1 > 0.0 && abs(ax1) < halfW) { tHit = t1; inner = true; }
+        }
+    }
+    bool solid = false;
+    if (tHit > 0.0) {
+        float3 pos = ro + rd * tHit;
+        float3 rel = pos - S;
+        float axy = dot(rel, axis);
+        float3 radial = normalize(rel - axy * axis);
+        // band-surface coordinates: angle along ring x axial width
+        float3 u0 = normalize(cross(axis, float3(0.0, 0.0, 1.0)) + 1e-4);
+        float3 v0 = cross(axis, u0);
+        float theta = atan2(dot(radial, v0), dot(radial, u0)) + gt * 0.02;  // ring spins
+        if (!inner) {
+            bool open;
+            col = panelTex(float2(theta * Rb * 3.2, (axy / halfW) * 2.2), seed, gt, open, 0.0);
+            solid = !open;
+            float3 nrm = radial;
+            float fres = pow(1.0 - max(dot(nrm, -rd), 0.0), 3.0);
+            col += warm * fres * 0.6;
+        } else {
+            // sunlit habitable inner surface: a glowing strip of land and sea
+            float hh = fbm(float3(theta * 9.0, axy * 5.0, seed * 11.0), 5);
+            float sea = 0.45;
+            float3 land = mix(float3(0.10, 0.30, 0.12), float3(0.45, 0.38, 0.22),
+                              smoothstep(sea, sea + 0.3, hh));
+            float3 oceanc = float3(0.05, 0.20, 0.32);
+            col = mix(oceanc, land, smoothstep(sea - 0.02, sea + 0.02, hh)) * 1.5;
+            float cl = smoothstep(0.55, 0.75, fbm(float3(theta * 14.0 + gt * 0.01, axy * 7.0, seed * 23.0), 4));
+            col = mix(col, float3(1.0), cl * 0.7);
+            col *= 0.9 + 0.4 * (1.0 - abs(axy) / halfW);   // brighter mid-strip
+            solid = true;
+        }
+        // bright structural edge rails
+        float rail = smoothstep(0.92, 1.0, abs(axy) / halfW);
+        col += warm * rail * 0.9;
+    }
+    // the star, occluded by the band where solid
+    float sd = length(S);
+    float dca = length(cross(rd, S));
+    if (dot(rd, normalize(S)) > 0.0 && (!solid || tHit > sd)) {
+        float Rs = 0.62;
+        float disc2 = smoothstep(Rs + 0.02 * sd, Rs - 0.02 * sd, dca);
+        col = mix(col, warm * 3.2, disc2);
+        col += warm * exp(-max(dca - Rs, 0.0) * 1.8) * 0.45;
+    }
+    return col;
+}
+
+// full sphere with fly-through: approach -> bore through an opening ->
+// overflight of the inner surface -> bore out -> recede
+float3 dysonJourney(float2 uv, float t, float seed, float4 pal, float gt, float dur) {
+    float prog = clamp(t / dur, 0.0, 1.0);
+    float pA = smoothstep(0.30, 0.38, prog);   // exterior -> entry bore
+    float pB = smoothstep(0.40, 0.47, prog);   // bore -> interior
+    float pC = smoothstep(0.76, 0.83, prog);   // interior -> exit bore
+    float pD = smoothstep(0.86, 0.93, prog);   // bore -> open space
+
+    float3 col;
+    float r = length(uv);
+    if (pA < 1.0) {
+        float3 ext = dysonExterior(uv, min(prog / 0.33, 1.0), seed, pal, gt, 1.0);
+        if (pA <= 0.0) { col = ext; } else { col = mix(ext, dysonRim(uv, t, seed, gt, 1.0), pA); }
+    } else if (pB < 1.0) {
+        // interior reveals through the bore mouth first, then floods outward
+        float w = clamp(pB * 1.6 - r * 0.8 + pB * pB * 0.7, 0.0, 1.0);
+        col = mix(dysonRim(uv, t, seed, gt, 1.0), dysonInterior(uv, t, seed, pal, gt), w);
+    } else if (pC <= 0.0) {
+        col = dysonInterior(uv, t, seed, pal, gt);
+    } else if (pD < 1.0) {
+        // exit: rim walls close in from the screen edges as we climb into the bore
+        float w = clamp(pC * 1.6 - max(1.1 - r, 0.0) * 0.9 + pC * pC * 0.8, 0.0, 1.0);
+        col = mix(dysonInterior(uv, t, seed, pal, gt), dysonRim(uv, t, seed + 5.0, gt, -1.0), w);
+        if (pD > 0.0) {
+            float3 away = spaceBG(uv * 0.8 + seed, seed + 6.0, pal, gt, 0.45)
+                        + float3(1.0, 0.82, 0.5) * exp(-length(uv) * 1.6) * 0.5;
+            col = mix(col, away, pD);
+        }
+    } else {
+        // receding: glow of the sphere behind us fades into open space
+        col = spaceBG(uv * 0.8 + seed, seed + 6.0, pal, gt, 0.45);
+        col += float3(1.0, 0.82, 0.5) * exp(-length(uv) * 1.6) * 0.5 * (1.0 - smoothstep(0.93, 1.0, prog));
+    }
+    return col;
+}
+
+float3 dysonScene(float2 uv, float t, float seed, float4 pal, float gt, float dur, int stage) {
+    if (stage == 0) return dysonRing(uv, t, seed, pal, gt, dur);
+    if (stage == 1) {
+        float prog = clamp(t / dur, 0.0, 1.0);
+        return dysonExterior(uv, prog, seed, pal, gt, 0.55);   // half-built shell
+    }
+    return dysonJourney(uv, t, seed, pal, gt, dur);
+}
+
+// Dyson swarm: shells of collector satellites glinting around the star
+float3 dysonSwarmScene(float2 uv, float t, float seed, float4 pal, float gt, float dur) {
+    float prog = clamp(t / dur, 0.0, 1.0);
+    float sp = smoothstep(0.0, 1.0, prog);
+    uv = rot2(gt * 0.004) * uv;
+    float3 col = spaceBG(uv + seed, seed + 7.0, pal, gt, 0.4);
+
+    // star drifts gently as we cruise past
+    float side = hash11(seed * 5.5) > 0.5 ? 1.0 : -1.0;
+    float2 ssun = float2(side * mix(0.25, -0.18, sp), 0.06 * sin(prog * 2.4 + seed));
+    float zoom = mix(0.55, 1.45, sp);              // whole swarm grows on approach
+    float2 q = (uv - ssun) / zoom;
+
+    float3 sunCol = starTemp(hash11(seed * 31.0) * 0.8);
+    // orbital shells of glinting collectors
+    for (int k = 0; k < 7; k++) {
+        float fk = float(k);
+        float h1 = hash11(seed * 3.1 + fk * 7.7);
+        float h2 = hash11(seed * 6.3 + fk * 3.9);
+        float2 qe = rot2(h1 * 6.28 + gt * 0.01 * (h2 - 0.5)) * q;
+        qe.y /= mix(0.22, 0.85, h2);               // orbit inclination
+        float rr = length(qe);
+        float Rk = 0.16 + fk * 0.085 + h1 * 0.03;
+        float band = exp(-pow((rr - Rk) * 150.0, 2.0));
+        if (band < 0.003) continue;
+        float ang = atan2(qe.y, qe.x);
+        float n = 26.0 + fk * 9.0;
+        float ph = ang / 6.28318 * n + gt * (0.18 + 0.10 * h2) * (h1 > 0.5 ? 1.0 : -1.0);
+        float ci = floor(ph);
+        float cf = fract(ph) - 0.5;
+        float hh = hash11(ci * 0.61 + fk * 13.0 + seed);
+        if (hh < 0.35) continue;                   // sparse population
+        float dot2 = exp(-cf * cf * 260.0);
+        // glint when the panel catches the star
+        float glint = 0.5 + 0.5 * sin(gt * (1.5 + hh * 3.0) + hh * 40.0);
+        col += sunCol * band * dot2 * (0.10 + 0.85 * glint * glint) * 0.8;
+    }
+    // a couple of near collectors sliding past in the foreground
+    for (int m = 0; m < 2; m++) {
+        float fm = float(m);
+        float ep = floor(t / 11.0 + fm * 0.5);
+        float fr = fract(t / 11.0 + fm * 0.5);
+        float2 he = hash22(float2(ep * 5.1 + fm * 17.0, seed * 13.0));
+        if (he.x < 0.35) continue;
+        float2 path0 = (he - 0.5) * 1.6;
+        float2 pp = path0 + float2(0.55, -0.25) * (fr - 0.5) * 2.0;
+        float2 d = rot2(he.y * 6.28 + fr * 0.4) * (uv - pp);
+        float panel = smoothstep(0.055, 0.05, abs(d.x)) * smoothstep(0.035, 0.03, abs(d.y));
+        float env = sin(3.14159 * fr);
+        float3 pc = float3(0.04, 0.045, 0.06) + sunCol * pow(max(0.0, sin(fr * 6.0 + he.y * 9.0)), 8.0) * 1.4;
+        col = mix(col, pc, panel * env * 0.95);
+        // blinking nav light
+        col += float3(1.0, 0.2, 0.15) * exp(-dot(d - float2(0.05, 0.0), d - float2(0.05, 0.0)) * 4000.0)
+             * step(0.6, fract(gt * 1.3 + he.y * 5.0)) * env;
+    }
+    // the star itself
+    float dca = length(q);
+    float Rs = 0.085;
+    col = mix(col, sunCol * 3.0, smoothstep(Rs + 0.01, Rs - 0.01, dca));
+    col += sunCol * exp(-max(dca - Rs, 0.0) * 14.0) * 0.55;
+    col += sunCol * exp(-max(dca - Rs, 0.0) * 3.5) * 0.07;
     return col;
 }
 
@@ -811,8 +1109,9 @@ float3 cometScene(float2 uv, float t, float seed, float4 pal, float gt, float du
 float3 encounterScene(float2 uv, float t, float4 scn, float4 pal, float gt) {
     int sub = int(scn.y + 0.5);
     float dur = max(scn.w, 1.0);
-    if (sub == 0) return dysonScene(uv, t, scn.x, pal, gt, dur);
+    if (sub == 0) return dysonScene(uv, t, scn.x, pal, gt, dur, int(scn.z + 0.5));
     if (sub == 1) return blackHoleScene(uv, t, scn.x, pal, gt, dur);
+    if (sub == 3) return dysonSwarmScene(uv, t, scn.x, pal, gt, dur);
     return cometScene(uv, t, scn.x, pal, gt, dur);
 }
 
