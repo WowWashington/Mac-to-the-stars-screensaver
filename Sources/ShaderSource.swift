@@ -253,6 +253,67 @@ float3 galaxyColor(float2 q, float seed, float4 pal, float t) {
     return col;
 }
 
+// ---------- volumetric galaxy (true 3D depth for close approach) ----------
+
+// density of the galactic disk at point p (galaxy frame: disk in xz, radius ~1.4)
+float galaxyDensity3D(float3 p, float seed, float arms, float wind, float dir, float armK) {
+    float r = length(p.xz);
+    if (r > 2.3) return 0.0;
+    float disk = exp(-r * 2.1);
+    // disk thickness exaggerated for visual body, fat central bulge
+    float h = 0.11 + 0.32 * exp(-r * r * 7.0);
+    float vert = exp(-abs(p.y) / max(h, 1e-3) * 1.7);
+    float base = disk * vert;
+    if (base < 0.010) return 0.0;          // empty space: skip the noise
+    float ang = atan2(p.z, p.x);
+    float ph = ang * arms - dir * wind * log(r + 0.05);
+    float arm = pow(0.5 + 0.5 * cos(ph), armK);
+    // the log-spiral term oscillates wildly near the core: fade arms into a
+    // smooth bulge there or the center renders as concentric stripes
+    arm = mix(0.55, arm, smoothstep(0.12, 0.45, r));
+    float dust = fbm(p * float3(3.4, 9.0, 3.4) + seed * 9.7, 2);
+    return base * (0.10 + arm * (0.25 + 1.1 * dust));
+}
+
+// march through the disk: emission + absorption = parallax, depth, dust silhouettes
+float3 galaxyVolume(float3 gro, float3 grd, float seed, float4 pal, float gt) {
+    float arms = 2.0 + floor(hash11(seed * 2.3) * 3.0);
+    float wind = mix(2.6, 5.2, hash11(seed * 4.9));
+    float dir = hash11(seed * 8.8) > 0.5 ? 1.0 : -1.0;
+    float armK = mix(1.6, 3.4, hash11(seed * 6.1));
+
+    // clip the march to the disk slab |y| <= 0.6
+    float t0 = 0.0, t1 = 4.0;
+    if (abs(grd.y) > 1e-4) {
+        float ta = (-0.6 - gro.y) / grd.y;
+        float tb = ( 0.6 - gro.y) / grd.y;
+        t0 = max(min(ta, tb), 0.0);
+        t1 = min(max(ta, tb), t0 + 4.0);
+    }
+    if (t1 <= t0) return float3(0.0);
+
+    float3 armCol = tint(pal.y, 0.55) * float3(0.85, 0.92, 1.12);
+    float3 coreCol = float3(1.0, 0.85, 0.62);
+    float ds = (t1 - t0) / 10.0;
+    float3 acc = float3(0.0);
+    float T = 1.0;
+    float jit = hash21(grd.xy * 731.7 + seed) * ds;   // dither against banding
+    for (int i = 0; i < 10; i++) {
+        float tt = t0 + (float(i) + 0.5) * ds + jit;
+        float3 p = gro + grd * tt;
+        float dens = galaxyDensity3D(p, seed, arms, wind, dir, armK);
+        if (dens < 0.004) continue;
+        float r = length(p.xz);
+        float3 c = mix(coreCol, armCol, smoothstep(0.05, 0.5, r));
+        c += coreCol * exp(-r * r * 14.0) * 1.1;          // glowing bulge
+        c += float3(1.0, 0.42, 0.58) * smoothstep(0.55, 0.8, dens) * 0.7;  // HII knots
+        acc += T * c * dens * ds * 6.5;
+        T *= exp(-dens * ds * 9.5);
+        if (T < 0.02) break;
+    }
+    return acc;
+}
+
 float3 spaceBG(float2 uv, float seed, float4 pal, float t, float nebAmt) {
     float3 col = float3(0.004, 0.005, 0.010);
     col += nebula(uv + hash11(seed * 3.3) * 4.0, seed, pal, t) * nebAmt;
@@ -333,9 +394,10 @@ float3 galaxyScene(float2 uv, float t, float4 scn, float4 pal, float gt,
     float zoom = mix(0.10, 4.2, pow(ease, 2.2));   // grows from a distant dot
     float2 center = mix(float2(0.0), float2(0.95, 0.30), ease);
     float enter = smoothstep(0.55, 0.95, prog);
-    // the galaxy sprite dissolves into its own disk as we plunge in —
-    // skip it entirely when deep inside (big GPU saving late in the scene)
-    if (enter < 0.92) {
+    // flat sprite/photo carries the FAR view (flat is correct at distance);
+    // the volumetric march takes over behind a brief dust-veil handoff
+    float vw = smoothstep(0.42, 0.50, prog);
+    if (enter < 0.92 && vw < 0.93) {
         float2 q = rot2(seed * 6.28 + gt * 0.005) * uv;
         float incl = mix(0.42, 0.95, hash11(seed * 5.1));
         q.y /= incl;
@@ -350,11 +412,38 @@ float3 galaxyScene(float2 uv, float t, float4 scn, float4 pal, float gt,
             float3 ic = pow(max(img.sample(gsmp, iuv).rgb, 0.0), float3(2.2));
             float mask = smoothstep(1.70, 1.30, length(q));
             float photoW = 1.0 - smoothstep(0.30, 0.58, prog);
-            col += ic * mask * photoW * 1.7;
+            col += ic * mask * photoW * 1.7 * (1.0 - vw);
             procW = smoothstep(0.24, 0.55, prog);
         }
-        col += galaxyColor(q, seed, pal, gt) * procW * fadeIn;
+        col += galaxyColor(q, seed, pal, gt) * procW * fadeIn * (1.0 - vw);
     }
+    // true 3D: ray-march the disk while descending into it — arms slide past
+    // each other, the bulge rises over the plane, dust silhouettes in depth
+    // dust veil: we punch through the galaxy's outer halo right as the
+    // representation switches — covers the sprite->volume handoff
+    float veil = smoothstep(0.38, 0.46, prog) * smoothstep(0.58, 0.50, prog);
+    if (veil > 0.003) {
+        float vfbm = fbm(float3(uv * 2.6, seed * 6.0 + gt * 0.06), 3);
+        col += tint(pal.y, 0.55) * veil * (0.25 + 0.85 * vfbm);
+    }
+    if (vw > 0.003) {
+        float vp = smoothstep(0.42, 1.0, prog);
+        // start far enough that the volume's apparent size matches the sprite
+        float3 cam = mix(float3(3.9, 2.4, -2.0), float3(0.85, 0.05, 0.25),
+                         smoothstep(0.0, 1.0, vp));
+        float3 tgt = mix(float3(0.0), float3(0.2, 0.0, 0.9), vp);
+        float3 fwd = normalize(tgt - cam);
+        float3 rightv = normalize(cross(fwd, float3(0.0, 1.0, 0.0)));
+        float3 upv = cross(rightv, fwd);
+        // keep the volume on the sprite's screen position during the handoff
+        float2 uv0 = -center * zoom * 0.5 * (1.0 - vp);
+        float2 uvv = uv - uv0;
+        float3 grd = normalize(rightv * uvv.x + upv * uvv.y + fwd * 1.45);
+        col += galaxyVolume(cam, grd, seed, pal, gt) * vw;
+    }
+    // foreground stars counter-drifting against the galaxy: parallax depth cue
+    float2 par = uv * 7.0 - center * 2.4 + seed * 11.0;
+    col += starLayerFast(par, 0.10, seed * 4.7, gt) * 0.7 * (1.0 - enter);
 
     // entering the disk: dust fog + local stars thicken, and the dust resolves
     // into a populated stellar neighborhood
