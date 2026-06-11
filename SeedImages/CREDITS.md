@@ -15,6 +15,7 @@ and are works of the U.S. Government, not subject to copyright
 | PIA12669~orig.jpg | PIA12669 | NASA/JPL-Caltech |
 | PIA17881~small.jpg | PIA17881 | NASA/JPL-Caltech |
 | PIA23126~large.jpg | PIA23126 | NASA/JPL-Caltech (Spitzer, Cepheus B & C) |
+| PIA10748-milkyway~large.jpg | PIA10748 | NASA/JPL-Caltech (R. Hurt) — face-on Milky Way artist concept; used for the opening galaxy view |
 | hubble-observes-one-of-a-kind-star-nicknamed-nasty_*.jpg | (Hubble, via images.nasa.gov) | NASA/ESA/Hubble |
 
 ## Rules followed for any image added here

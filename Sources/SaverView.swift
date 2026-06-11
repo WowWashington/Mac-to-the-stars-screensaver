@@ -139,7 +139,11 @@ final class GalacticOdysseyView: ScreenSaverView {
             discoverSeedImages()
         }
         if director == nil {
-            director = Director(imageAspects: seedAspects)
+            let galaxyIdx = seedImageURLs.indices.filter {
+                let n = seedImageURLs[$0].lastPathComponent.lowercased()
+                return n.contains("milky") || n.contains("galaxy")
+            }
+            director = Director(imageAspects: seedAspects, galaxyImages: galaxyIdx)
         }
         // HUD only on full-size screens, never in the Settings thumbnail
         if hud == nil && !isPreview && showHUD && bounds.height > 300 {
@@ -165,18 +169,20 @@ final class GalacticOdysseyView: ScreenSaverView {
                                Float(metalLayer.drawableSize.height))
         guard res.x > 0, res.y > 0 else { return }
         var u = director.uniforms(at: t, resolution: res)
-        // deepfield scenes: rebind scn.y from image index to SCREEN aspect for
-        // the shader, and supply the NASA image texture
+        // bind the NASA image texture for whichever active scene needs one
+        // (deepfield or photo-backed galaxy); deepfield also swaps scn.y from
+        // image index to SCREEN aspect for the shader
         var image: MTLTexture?
         let screenAspect = res.x / res.y
-        if u.sceneType == SceneKind.deepfield.rawValue {
-            image = texture(at: Int(u.scnA.y))
-            u.scnA.y = screenAspect
+        if let idx = Director.imageIndex(kind: u.sceneType, params: u.scnA) {
+            image = texture(at: idx)
         }
-        if u.prevSceneType == SceneKind.deepfield.rawValue {
-            if image == nil, u.transition < 1 { image = texture(at: Int(u.scnB.y)) }
-            u.scnB.y = screenAspect
+        if u.transition < 1, image == nil,
+           let idx = Director.imageIndex(kind: u.prevSceneType, params: u.scnB) {
+            image = texture(at: idx)
         }
+        if u.sceneType == SceneKind.deepfield.rawValue { u.scnA.y = screenAspect }
+        if u.prevSceneType == SceneKind.deepfield.rawValue { u.scnB.y = screenAspect }
         renderer.draw(to: metalLayer, uniforms: u, image: image)
 
         if let hud {

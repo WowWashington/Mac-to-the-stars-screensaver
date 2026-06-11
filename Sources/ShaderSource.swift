@@ -317,8 +317,11 @@ float3 cruiseScene(float2 uv, float t, float4 scn, float4 pal, float gt) {
 
 // ---------- scene 1: galaxy approach & entry ----------
 
-float3 galaxyScene(float2 uv, float t, float4 scn, float4 pal, float gt) {
+float3 galaxyScene(float2 uv, float t, float4 scn, float4 pal, float gt,
+                   texture2d<float> img) {
+    constexpr sampler gsmp(filter::linear, address::clamp_to_edge);
     float seed = scn.x;
+    bool hasImg = scn.y > 0.5;          // scn.y = image index + 1, scn.z = aspect
     float dur = max(scn.w, 1.0);
     float prog = clamp(t / dur, 0.0, 1.0);
     float ease = smoothstep(0.0, 1.0, prog);
@@ -337,7 +340,20 @@ float3 galaxyScene(float2 uv, float t, float4 scn, float4 pal, float gt) {
         float incl = mix(0.42, 0.95, hash11(seed * 5.1));
         q.y /= incl;
         q = q / zoom * 2.0 + center;
-        col += galaxyColor(q, seed, pal, gt) * (1.0 - 0.9 * smoothstep(0.55, 0.92, enter));
+        float fadeIn = 1.0 - 0.9 * smoothstep(0.55, 0.92, enter);
+        float procW = 1.0;
+        if (hasImg) {
+            // real archive photograph carries the approach, then hands off
+            // to the procedural disk as we close in
+            float a = max(scn.z, 0.1);
+            float2 iuv = float2(q.x / a, -q.y) / 3.4 + 0.5;
+            float3 ic = pow(max(img.sample(gsmp, iuv).rgb, 0.0), float3(2.2));
+            float mask = smoothstep(1.70, 1.30, length(q));
+            float photoW = 1.0 - smoothstep(0.30, 0.58, prog);
+            col += ic * mask * photoW * 1.7;
+            procW = smoothstep(0.24, 0.55, prog);
+        }
+        col += galaxyColor(q, seed, pal, gt) * procW * fadeIn;
     }
 
     // entering the disk: dust fog + local stars thicken, and the dust resolves
@@ -357,14 +373,15 @@ float3 galaxyScene(float2 uv, float t, float4 scn, float4 pal, float gt) {
             float fade = smoothstep(1.0, 0.8, ph) * smoothstep(0.0, 0.12, ph);
             col += starLayerFast(sq * 1.8, 0.20, seed * 9.0 + fi * 5.0, gt) * fade * enter;
         }
-        // resolved solar systems drifting past at two parallax depths
-        for (int i = 0; i < 2; i++) {
+        // resolved solar systems: born sub-pixel at max depth, growing
+        // continuously until they sweep past the camera — never popping in
+        for (int i = 0; i < 3; i++) {
             float fi = float(i);
-            float ph = fract(fi / 2.0 - t * 0.035 + hash11(seed * 5.0 + fi) * 0.9);
+            float ph = fract(fi / 3.0 - t * 0.035 + hash11(seed * 5.0 + fi) * 0.9);
             float depth = 0.10 + 0.90 * ph;
             float2 q = uv * depth * 5.5 + (hash22(float2(fi * 9.1, seed * 13.0)) - 0.5) * 7.0;
-            float fade = smoothstep(1.0, 0.85, ph) * smoothstep(0.0, 0.15, ph);
-            col += systemLayer(q, seed + fi * 7.0, gt, 0.30) * fade * enter * mix(1.4, 0.6, ph);
+            float fade = smoothstep(1.0, 0.85, ph) * smoothstep(0.0, 0.05, ph);
+            col += systemLayer(q, seed + fi * 7.0, gt, 0.30) * fade * enter * mix(1.8, 0.55, ph);
         }
     }
     return col;
@@ -1224,7 +1241,7 @@ float3 deepfieldScene(float2 uv, float t, float4 scn, float4 pal, float gt,
 float3 renderScene(int type, float t, float4 scn, float4 pal, float2 uv, float gt,
                    texture2d<float> img) {
     if (type == 0) return cruiseScene(uv, t, scn, pal, gt);
-    if (type == 1) return galaxyScene(uv, t, scn, pal, gt);
+    if (type == 1) return galaxyScene(uv, t, scn, pal, gt, img);
     if (type == 2) return planetScene(uv, t, scn, pal, gt);
     if (type == 4) return encounterScene(uv, t, scn, pal, gt);
     if (type == 5) return deepfieldScene(uv, t, scn, pal, gt, img);

@@ -158,6 +158,28 @@ writeHUDComposite("16_hud_planet",
                   kind: .planet, progress: 0.5, remaining: 754, warpActive: false,
                   speedText: "0.21 c", speedNorm: 0.21, yaw: 217.4, pitch: 3.2),
     time: 872)
+// galaxy approach backed by the real Milky Way archive image
+do {
+    let mwURL = URL(fileURLWithPath: "SeedImages/PIA10748-milkyway~large.jpg")
+    if FileManager.default.fileExists(atPath: mwURL.path) {
+        let loader = MTKTextureLoader(device: renderer.device)
+        let mwTex = try loader.newTexture(URL: mwURL, options: [.SRGB: false])
+        for (name, tt) in [("28_galaxy_photo_far", Float(7)), ("29_galaxy_photo_mid", Float(15))] {
+            var u = uni(type: .galaxy, t: tt, seed: 412, dur: 38, pal: palBlue)
+            u.scnA.y = 1                  // image index 0 + 1
+            u.scnA.z = Float(mwTex.width) / Float(mwTex.height)
+            u.scnB = u.scnA
+            guard let cb = renderer.encode(into: tex, uniforms: u, image: mwTex) else { fatalError("encode") }
+            cb.commit(); cb.waitUntilCompleted()
+            writePNG(name)
+        }
+    } else {
+        print("skip galaxy_photo cases (no PIA10748)")
+    }
+} catch {
+    print("galaxy photo case failed: \(error)")
+}
+
 // deepfield: NASA seed image with pan/zoom + parallax stars
 do {
     let imgURL = URL(fileURLWithPath: "SeedImages/PIA23126~large.jpg")

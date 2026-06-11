@@ -39,9 +39,14 @@ final class Director {
     private var queue: [SceneSpec] = []
     /// aspect (w/h) of each bundled NASA seed image; empty = no deepfield scenes
     private let imageAspects: [Float]
+    /// indices into imageAspects whose filename marks them as galaxy imagery —
+    /// used as the photographic far view of galaxy-approach scenes
+    private let galaxyImages: [Int]
 
-    init(seed: UInt64 = .random(in: .min ... .max), imageAspects: [Float] = []) {
+    init(seed: UInt64 = .random(in: .min ... .max), imageAspects: [Float] = [],
+         galaxyImages: [Int] = []) {
         self.imageAspects = imageAspects
+        self.galaxyImages = galaxyImages
         var r = SplitMix64(state: seed)
         // opening palette: classic Milky Way blues/silvers
         var pal = Director.makePalette(&r)
@@ -53,6 +58,11 @@ final class Director {
         first.params.w = Float.random(in: 34...42, using: &r)   // a longer, statelier opening
         first.sector = "ORION SPUR · MILKY WAY"
         first.target = "SPIRAL GALAXY · HOME"
+        // the opening uses the real Milky Way archive image when available
+        if let gi = galaxyImages.randomElement(using: &r), gi < imageAspects.count {
+            first.params.y = Float(gi + 1)
+            first.params.z = imageAspects[gi]
+        }
         rng = r
         current = first
         previous = first
@@ -148,8 +158,23 @@ final class Director {
                 scene.target = "ARCHIVE IMG \(Director.designation(&rng))"
             } else {
                 scene.target = Director.makeTargetName(kind, subtype: Int(scene.params.y), rng: &rng)
+                if kind == .galaxy, let gi = galaxyImages.randomElement(using: &rng),
+                   gi < imageAspects.count, Float.random(in: 0...1, using: &rng) < 0.45 {
+                    scene.params.y = Float(gi + 1)
+                    scene.params.z = imageAspects[gi]
+                }
             }
             scenes.append(scene)
+        }
+        // one texture slot per frame: a galaxy photo can't crossfade against a
+        // deepfield image, so strip the photo when scheduled next to one
+        for i in scenes.indices where scenes[i].kind == .galaxy && scenes[i].params.y > 0.5 {
+            let prevDF = i > 0 && scenes[i - 1].kind == .deepfield
+            let nextDF = i + 1 < scenes.count && scenes[i + 1].kind == .deepfield
+            if prevDF || nextDF {
+                scenes[i].params.y = 0
+                scenes[i].params.z = 0
+            }
         }
         return scenes
     }
@@ -189,10 +214,10 @@ final class Director {
         }
     }
 
-    /// Image index the renderer must bind this frame (nil = no deepfield active).
-    func activeImageIndex() -> Int? {
-        if current.kind == .deepfield { return Int(current.params.y) }
-        if previous.kind == .deepfield { return Int(previous.params.y) }
+    /// Image index for a scene's texture slot (nil = scene uses no image).
+    static func imageIndex(kind: Int32, params: SIMD4<Float>) -> Int? {
+        if kind == SceneKind.deepfield.rawValue { return Int(params.y) }
+        if kind == SceneKind.galaxy.rawValue, params.y > 0.5 { return Int(params.y) - 1 }
         return nil
     }
 
