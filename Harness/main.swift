@@ -206,6 +206,7 @@ if CommandLine.arguments.contains("--bench") {
     }
     bench("cruise", uni(type: .cruise, t: 12, seed: 137, subtype: 1.0, pal: palBlue))
     bench("galaxy_mid", uni(type: .galaxy, t: 18, seed: 412, dur: 32, pal: palTeal))
+    bench("galaxy_entry", uni(type: .galaxy, t: 27, seed: 412, dur: 32, pal: palTeal))
     bench("system_rings", uni(type: .planet, t: 20, seed: 251, subtype: 1, flags: 1, dur: 42, pal: palWarm))
     bench("warp", uni(type: .warp, t: 4.5, seed: 77, dur: 9, pal: palTeal))
     bench("blackhole", uni(type: .encounter, t: 17, seed: 271, subtype: 1, dur: 30, pal: palBlue))

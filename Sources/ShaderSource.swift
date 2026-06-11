@@ -165,6 +165,65 @@ float3 starLayer(float2 uv, float density, float seed, float t) {
     return col;
 }
 
+// single-cell starfield: ~9x cheaper than starLayer; stars are kept small and
+// centered so nothing visibly clips at cell borders. For dense fly-through layers.
+float3 starLayerFast(float2 uv, float density, float seed, float t) {
+    float2 id = floor(uv);
+    float2 f = uv - id;
+    float2 rnd = hash22(id * 1.13 + seed * 19.19);
+    if (rnd.x > density) return float3(0.0);
+    float2 d2 = rnd.yx * 0.5 + 0.25 - f;
+    float d = length(d2);
+    float h = hash21(id + seed * 0.731);
+    float sz = mix(26.0, 11.0, h * h);
+    float bright = 0.35 + 1.2 * h * h * h;
+    float tw = 0.8 + 0.2 * sin(t * (1.0 + 3.0 * h) + h * 41.0);
+    float core = exp(-d * d * sz * sz * 14.0);
+    float glow = exp(-d * 9.0) * 0.05 * bright;
+    return starTemp(fract(h * 7.77)) * (core * bright * tw + glow);
+}
+
+// a tiny resolved solar system: star + faint disc + orbiting planet specks.
+// p in local coords, star at origin, visible radius ~0.3
+float3 miniSystem(float2 p, float h, float gt) {
+    float3 sc = starTemp(fract(h * 9.1));
+    float d = length(p);
+    float3 col = sc * (exp(-d * d * 900.0) * 2.2 + exp(-d * 14.0) * 0.25);
+    // inclined system plane
+    float squash = mix(0.25, 0.6, fract(h * 5.3));
+    float2 e = rot2(h * 6.28318) * p;
+    e.y /= squash;
+    float er = length(e);
+    // faint protoplanetary disc
+    float ring = exp(-pow((er - 0.16) * 60.0, 2.0));
+    col += sc * ring * 0.08;
+    // planets crawling along their orbits
+    for (int k = 0; k < 2; k++) {
+        float fk = float(k);
+        if (k == 1 && fract(h * 11.7) < 0.45) break;   // some systems have one
+        float orad = 0.10 + 0.10 * fk + 0.05 * fract(h * 7.7 + fk * 3.1);
+        float ang = gt * (0.22 - 0.07 * fk) * (h > 0.5 ? 1.0 : -1.0) + h * 40.0 + fk * 2.4;
+        float2 pp = float2(cos(ang), sin(ang)) * orad;
+        float dd = length(e - pp);
+        col += mix(float3(0.7, 0.8, 1.0), float3(1.0, 0.85, 0.6), fract(h * 13.3))
+             * exp(-dd * dd * 5000.0) * 0.85;
+    }
+    return col;
+}
+
+// sparse field of mini systems (for flying through a galactic disk).
+// single-cell: sprites are sized to fit one cell, so no neighbor scan needed.
+float3 systemLayer(float2 uv, float seed, float gt, float density) {
+    float2 id = floor(uv);
+    float2 f = uv - id;
+    float2 rnd = hash22(id * 2.17 + seed * 31.0);
+    if (rnd.x > density) return float3(0.0);
+    float2 p = f - (0.3 + rnd.yx * 0.4);
+    float h = hash21(id * 1.71 + seed);
+    float s = mix(1.3, 2.2, fract(h * 3.3));   // size variety
+    return miniSystem(p * s, h, gt) / (0.9 + s * 0.35);
+}
+
 // procedural spiral galaxy, q in galaxy-plane coords (radius ~1)
 float3 galaxyColor(float2 q, float seed, float4 pal, float t) {
     float r = length(q);
@@ -270,19 +329,24 @@ float3 galaxyScene(float2 uv, float t, float4 scn, float4 pal, float gt) {
     // approach: galaxy grows; we aim toward an arm, not the core
     float zoom = mix(0.10, 4.2, pow(ease, 2.2));   // grows from a distant dot
     float2 center = mix(float2(0.0), float2(0.95, 0.30), ease);
-    float2 q = rot2(seed * 6.28 + gt * 0.005) * uv;
-    float incl = mix(0.42, 0.95, hash11(seed * 5.1));
-    q.y /= incl;
-    q = q / zoom * 2.0 + center;
-    col += galaxyColor(q, seed, pal, gt);
+    float enter = smoothstep(0.55, 0.95, prog);
+    // the galaxy sprite dissolves into its own disk as we plunge in —
+    // skip it entirely when deep inside (big GPU saving late in the scene)
+    if (enter < 0.92) {
+        float2 q = rot2(seed * 6.28 + gt * 0.005) * uv;
+        float incl = mix(0.42, 0.95, hash11(seed * 5.1));
+        q.y /= incl;
+        q = q / zoom * 2.0 + center;
+        col += galaxyColor(q, seed, pal, gt) * (1.0 - 0.9 * smoothstep(0.55, 0.92, enter));
+    }
 
-    // entering the disk: dust fog + local stars thicken
-    float enter = smoothstep(0.62, 1.0, prog);
-    if (enter > 0.001) {
+    // entering the disk: dust fog + local stars thicken, and the dust resolves
+    // into a populated stellar neighborhood
+    if (enter > 0.003) {
         float fog = fbm(float3(uv * 2.4, seed * 4.4 + gt * 0.01), 4);
-        float wisp = fbm(float3(uv * 6.5 + 7.0, seed * 8.8 + gt * 0.015), 4);
+        float wisp = fbm(float3(uv * 6.5 + 7.0, seed * 8.8 + gt * 0.015), 3);
         float lane = ridged(float3(uv * 3.4, seed * 6.2), 3);
-        float3 fogCol = tint(pal.y, 0.6) * pow(fog, 2.0) * pow(wisp, 1.6) * 0.9;
+        float3 fogCol = tint(pal.y, 0.6) * pow(fog, 2.0) * pow(wisp, 1.6) * 0.8;
         fogCol *= 1.0 - 0.75 * smoothstep(0.45, 0.8, lane);
         col += fogCol * enter;
         for (int i = 0; i < 4; i++) {
@@ -291,7 +355,16 @@ float3 galaxyScene(float2 uv, float t, float4 scn, float4 pal, float gt) {
             float depth = 0.06 + 0.94 * ph;
             float2 sq = uv * depth * 5.0 + (hash22(float2(fi, seed * 7.0)) - 0.5) * 8.0;
             float fade = smoothstep(1.0, 0.8, ph) * smoothstep(0.0, 0.12, ph);
-            col += starLayer(sq, 0.12, seed * 9.0 + fi * 5.0, gt) * fade * enter * 0.8;
+            col += starLayerFast(sq * 1.8, 0.20, seed * 9.0 + fi * 5.0, gt) * fade * enter;
+        }
+        // resolved solar systems drifting past at two parallax depths
+        for (int i = 0; i < 2; i++) {
+            float fi = float(i);
+            float ph = fract(fi / 2.0 - t * 0.035 + hash11(seed * 5.0 + fi) * 0.9);
+            float depth = 0.10 + 0.90 * ph;
+            float2 q = uv * depth * 5.5 + (hash22(float2(fi * 9.1, seed * 13.0)) - 0.5) * 7.0;
+            float fade = smoothstep(1.0, 0.85, ph) * smoothstep(0.0, 0.15, ph);
+            col += systemLayer(q, seed + fi * 7.0, gt, 0.30) * fade * enter * mix(1.4, 0.6, ph);
         }
     }
     return col;
