@@ -63,8 +63,11 @@ if [[ "${1:-}" == "install" ]]; then
   cp -R "$SAVER" "$DEST/"
   echo "==> installed to $DEST/GalacticOdyssey.saver"
   # re-assert selection for ALL displays/spaces (System Settings sometimes
-  # rewrites entries with a provider that can't host legacy .saver bundles)
-  python3 select_saver.py && killall WallpaperAgent 2>/dev/null || true
-  killall legacyScreenSaver 2>/dev/null || true
-  echo "==> selection re-applied, agents restarted"
+  # rewrites entries with a provider that can't host legacy .saver bundles).
+  # Set SKIP_SELECT=1 to install without changing your screensaver selection.
+  if [[ "${SKIP_SELECT:-0}" != "1" ]]; then
+    python3 select_saver.py && killall WallpaperAgent 2>/dev/null || true
+    killall legacyScreenSaver 2>/dev/null || true
+    echo "==> selected as screensaver on all displays (SKIP_SELECT=1 to opt out)"
+  fi
 fi
