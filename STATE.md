@@ -33,8 +33,10 @@ Mac-StarsScreenSaver/
 ├── Harness/main.swift       # offscreen renderer -> Preview/*.png for visual QA
 ├── select_saver.py          # patches wallpaper-store Index.plist for ALL displays/spaces
 ├── LICENSE                  # MIT (code only; images excluded — see note inside)
-├── SeedImages/              # verified NASA images (bundled) + CREDITS.md provenance table
-│   └── unverified/          # non-NASA/unknown-origin files — NEVER bundled or distributed
+├── SeedImages/              # 14 bundled images: NASA archive (PIA*, hubble*) +
+│   │                        #   publicdomainpictures.net CC0 set (provenance in CREDITS.md);
+│   │                        #   *milky*/*galaxy* filenames feed the galaxy-approach photo pool
+│   └── unverified/          # excluded: composite art + saved webpage w/ NASA logos
 ├── Preview/                 # rendered QA frames (gitignore-able)
 ├── Info.plist               # NSPrincipalClass = GalacticOdysseyView
 ├── build.sh                 # build | preview | install
@@ -48,7 +50,7 @@ Mac-StarsScreenSaver/
 1. **Single fullscreen-triangle Metal fragment shader** does all rendering (Shadertoy-style). No geometry, no assets.
 2. **Shader compiled at runtime** from a Swift string — avoids needing the Xcode metal toolchain; CLT-only `swiftc` builds everything.
 3. **Saver binary is a dylib** built with `swiftc -emit-library`, used as bundle executable; `NSBundle.load()`/dlopen accepts it (verified). Universal arm64+x86_64 via lipo.
-4. **Scene system**: Director emits `Uniforms` each frame. Scene types: 0 cruise, 1 galaxy, 2 SOLAR SYSTEM transit (38-48s: camera flies through a system of 5 planets + positional sun, 28% binary pair in mutual orbit; planet i=2 is the sunward "hero" close-flyby whose type/rings come from scene params; golden-angle spread avoids clumping; distant planets render as phase-lit dots; AA'd limbs, fractal bump on rocky worlds, sunset terminator band), 3 warp, 4 encounter (subtypes: 0 Dyson sphere — flags=stage: 0 Niven ring band, 1 half-built shell, 2 complete sphere with 52-62s fly-THROUGH journey (exterior → bore entry → inner-surface overflight with oceans/ranges/arcology lights under captive sun → bore exit, spatial radial blends between phases); 1 black hole, 2 comet swarm, 3 Dyson swarm — orbital glint shells + near collector passes), 5 deepfield (NASA archive image with slow pan/zoom + parallax stars; only scheduled when bundled images exist; scn.y carries image index from Director, host swaps it for SCREEN aspect before encode and binds the texture; scn.z = image aspect). A "region" = shared color palette + 2-3 scenes, then a warp jump leads to the next region (new palette/seeds). Crossfades render both scenes and mix (transition < 1). The show always OPENS on a Milky Way-style galaxy (blue/silver palette, 34-42s) growing from a dot as we fly into it.
+4. **Scene system**: Director emits `Uniforms` each frame. Scene types: 0 cruise, 1 galaxy (far = flat sprite/archive photo growing from a dot; close = VOLUMETRIC 10-step jittered ray-march of a 3D disk density field for true parallax depth, handoff covered by a dust-veil pulse; entry populates the disk with mini solar systems — animated planets orbiting seeded stars — at 3 parallax depths; galaxy-approach photos auto-picked from SeedImages files named *milky*/*galaxy*, scn.y = image index+1, scn.z = aspect), 2 SOLAR SYSTEM transit (38-48s: camera flies through a system of 5 planets + positional sun, 28% binary pair in mutual orbit; planet i=2 is the sunward "hero" close-flyby whose type/rings come from scene params; golden-angle spread avoids clumping; distant planets render as phase-lit dots; AA'd limbs, fractal bump on rocky worlds, sunset terminator band), 3 warp, 4 encounter (subtypes: 0 Dyson sphere — flags=stage: 0 Niven ring band, 1 half-built shell, 2 complete sphere with 52-62s fly-THROUGH journey (exterior → bore entry → inner-surface overflight with oceans/ranges/arcology lights under captive sun → bore exit, spatial radial blends between phases); 1 black hole, 2 comet swarm, 3 Dyson swarm — orbital glint shells + near collector passes), 5 deepfield (NASA archive image with slow pan/zoom + parallax stars; only scheduled when bundled images exist; scn.y carries image index from Director, host swaps it for SCREEN aspect before encode and binds the texture; scn.z = image aspect). A "region" = shared color palette + 2-3 scenes, then a warp jump leads to the next region (new palette/seeds). Crossfades render both scenes and mix (transition < 1). The show always OPENS on a Milky Way-style galaxy (blue/silver palette, 34-42s) growing from a dot as we fly into it.
 9. **HUD**: optional cockpit overlay (default ON, full-size screens only). Toggle via the Options… sheet in System Settings → Screen Saver (configureSheet in SaverView.swift), or `defaults -currentHost write com.petersheppard.GalacticOdyssey ShowHUD -bool NO`. CALayer-based so text stays crisp regardless of the 3D render cap. Director supplies telemetry (`hudInfo(at:)` — call after `uniforms(at:)`): sector/target names per region/scene, speed model per scene type, warp shows blinking amber "WARP ACTIVE" + DEST sector.
 10. **Multi-display gotcha**: System Settings sometimes rewrites Idle entries with provider `com.apple.wallpaper.choice.screen-saver`, which CANNOT host legacy .saver bundles → that display falls back to a built-in saver. Fix: `python3 select_saver.py && killall WallpaperAgent` (now run automatically by `./build.sh install`). All Idle entries must use `com.apple.NeptuneOneExtension`.
 11. **Motion convention**: depth-layer patterns use `q = uv * depth * K` with depth shrinking over time, so stars/comets stream OUTWARD (toward the viewer); warp streak phase uses `+t` so heads race outward. Getting either sign wrong makes travel look reversed — this was a real bug, fixed 2026-06-10. All approaching bodies grow from a dot (planet z from 17, dyson z from 22, black hole scale from 0.05, galaxy zoom from 0.10).
@@ -104,16 +106,24 @@ Ad-hoc codesigned; locally built so no quarantine/Gatekeeper issues.
 ## Git History (recent)
 
 ```
+f93ca1a restore publicdomainpictures.net images with documented provenance
+0d8a28d document volumetric patterns in claude.md
+bb45aec volumetric raymarched galaxy for true 3d depth
+31de5a5 open on real nasa milky way image; continuous growth for mini systems
+f0f3e77 note starlayer cost and bench contention caveat in claude.md
+634ee45 populate galaxy entry with resolved mini solar systems
+7c7baa5 add project claude.md: scene recipe, perf budget, image and licensing rules
+1949804 add dyson swarm and staged dyson spheres with interior fly-through
+d89afac add options sheet with HUD toggle in system settings
 3b0ebe7 initial release: procedural space screensaver with NASA deep-field scenes
 ```
-Local repo only (main branch) — no GitHub remote yet; push deliberately when ready to publish. .gitignore excludes build/, Preview/, SeedImages/unverified/ (never publish those images).
+Local repo only (main branch) — no GitHub remote yet; push deliberately when ready to publish (`gh repo create Mac-StarsScreenSaver --public --source . --push`). .gitignore excludes build/, Preview/, SeedImages/unverified/. Consider a README + screen-recording GIF before publishing.
 
 ---
 
 ## Current Status
 
-**Last updated**: 2026-06-10
-**State**: Active
-**Recent changes**: Added NASA deep-field scenes (9 verified images.nasa.gov photos bundled, lazy-loaded MTKTextures, Ken-Burns drift); MIT LICENSE (code only) + SeedImages/CREDITS.md provenance; unverified stock images quarantined in SeedImages/unverified/ and excluded from builds. Distribution posture: MIT code + courtesy-NASA images, no NASA logos, no endorsement implied.
-**Note**: live two-display capture couldn't be re-verified on 2026-06-10 (machine was in active use; engine dismisses on input) — config verified at store level; next idle period will show both screens
-**Next steps**: Enjoy. If a scene looks off in person, tweak its function in ShaderSource.swift and `./build.sh install && killall legacyScreenSaver WallpaperAgent`.
+**Last updated**: 2026-06-10 (end of initial build marathon, Fable 5 session)
+**State**: Active — installed, selected for all displays, verified live on-screen earlier in session
+**Recent changes**: Volumetric ray-marched galaxy (true 3D depth, dust-veil handoff); galaxy entry populated with animated mini solar systems; opening uses real archive Milky Way photos (3-image pool); publicdomainpictures.net CC0 images restored with documented provenance (14 images bundled); Dyson stages + swarm; solar-system transits; starship HUD with Options sheet; MIT LICENSE + CREDITS for GitHub sharing.
+**Next steps**: Owner plans to continue with a cheaper model — CLAUDE.md holds the scene recipe, perf budget, and gotchas; ALWAYS use the `./build.sh preview` + `--bench` loop and view the PNGs before installing. Candidate features: pulsar/asteroid-belt/nebula-pillar encounters; README + demo GIF before GitHub publish (`gh repo create Mac-StarsScreenSaver --public --source . --push`).
