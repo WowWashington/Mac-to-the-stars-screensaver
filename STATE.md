@@ -8,7 +8,7 @@
 
 - **Language/Stack**: Swift 5 mode (Swift 6.3 toolchain), Metal fragment shader (compiled at runtime via `makeLibrary(source:)` — no Xcode project needed)
 - **Dependencies**: none (system frameworks only: ScreenSaver, Metal, QuartzCore, AppKit)
-- **Repo**: not published (no git repo as of 2026-06-10)
+- **Repo**: local git repo (main), GitHub publication planned under MIT
 - **Local path**: `/Users/automator/Projects/Mac-StarsScreenSaver/`
 
 ---
@@ -103,7 +103,10 @@ Ad-hoc codesigned; locally built so no quarantine/Gatekeeper issues.
 
 ## Git History (recent)
 
-Not a git repository yet.
+```
+3b0ebe7 initial release: procedural space screensaver with NASA deep-field scenes
+```
+Local repo only (main branch) — no GitHub remote yet; push deliberately when ready to publish. .gitignore excludes build/, Preview/, SeedImages/unverified/ (never publish those images).
 
 ---
 

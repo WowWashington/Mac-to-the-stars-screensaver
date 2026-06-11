@@ -16,10 +16,15 @@ final class GalacticOdysseyView: ScreenSaverView {
     private var textureCache: [Int: MTLTexture] = [:]
     private var textureLoader: MTKTextureLoader?
 
+    private var configPanel: NSPanel?
+    private weak var hudCheckbox: NSButton?
+
+    private static let prefsModule = "com.petersheppard.GalacticOdyssey"
+
     private var showHUD: Bool {
-        // disable with:
-        //   defaults -currentHost write com.petersheppard.GalacticOdyssey ShowHUD -bool NO
-        let defs = ScreenSaverDefaults(forModuleWithName: "com.petersheppard.GalacticOdyssey")
+        // toggled via the Options… sheet in System Settings (or:
+        //   defaults -currentHost write com.petersheppard.GalacticOdyssey ShowHUD -bool NO)
+        let defs = ScreenSaverDefaults(forModuleWithName: Self.prefsModule)
         guard let defs, defs.object(forKey: "ShowHUD") != nil else { return true }
         return defs.bool(forKey: "ShowHUD")
     }
@@ -43,7 +48,85 @@ final class GalacticOdysseyView: ScreenSaverView {
         return metalLayer
     }
 
-    override var hasConfigureSheet: Bool { false }
+    override var hasConfigureSheet: Bool { true }
+
+    override var configureSheet: NSWindow? {
+        if let panel = configPanel {
+            hudCheckbox?.state = showHUD ? .on : .off
+            return panel
+        }
+        let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 400, height: 170),
+                            styleMask: [.titled], backing: .buffered, defer: false)
+        panel.title = "Galactic Odyssey"
+        guard let content = panel.contentView else { return panel }
+
+        let title = NSTextField(labelWithString: "Galactic Odyssey Options")
+        title.font = .boldSystemFont(ofSize: 13)
+        title.frame = NSRect(x: 24, y: 132, width: 352, height: 20)
+        content.addSubview(title)
+
+        let check = NSButton(checkboxWithTitle: "Show starship HUD (telemetry overlay)",
+                             target: nil, action: nil)
+        check.state = showHUD ? .on : .off
+        check.frame = NSRect(x: 24, y: 100, width: 352, height: 20)
+        content.addSubview(check)
+        hudCheckbox = check
+
+        let credit = NSTextField(labelWithString: "Deep-field imagery courtesy NASA (images.nasa.gov)")
+        credit.font = .systemFont(ofSize: 11)
+        credit.textColor = .secondaryLabelColor
+        credit.frame = NSRect(x: 24, y: 72, width: 352, height: 16)
+        content.addSubview(credit)
+
+        let ok = NSButton(title: "OK", target: self, action: #selector(configOK(_:)))
+        ok.bezelStyle = .rounded
+        ok.keyEquivalent = "\r"
+        ok.frame = NSRect(x: 304, y: 16, width: 72, height: 30)
+        content.addSubview(ok)
+
+        let cancel = NSButton(title: "Cancel", target: self, action: #selector(configCancel(_:)))
+        cancel.bezelStyle = .rounded
+        cancel.keyEquivalent = "\u{1b}"
+        cancel.frame = NSRect(x: 224, y: 16, width: 76, height: 30)
+        content.addSubview(cancel)
+
+        configPanel = panel
+        return panel
+    }
+
+    @objc private func configOK(_ sender: Any?) {
+        if let defs = ScreenSaverDefaults(forModuleWithName: Self.prefsModule) {
+            defs.set(hudCheckbox?.state == .on, forKey: "ShowHUD")
+            defs.synchronize()
+        }
+        applyHUDVisibility()
+        dismissConfigSheet()
+    }
+
+    @objc private func configCancel(_ sender: Any?) {
+        dismissConfigSheet()
+    }
+
+    private func dismissConfigSheet() {
+        guard let panel = configPanel else { return }
+        if let parent = panel.sheetParent {
+            parent.endSheet(panel)
+        } else {
+            panel.orderOut(nil)
+        }
+    }
+
+    private func applyHUDVisibility() {
+        if !showHUD {
+            hud?.root.removeFromSuperlayer()
+            hud = nil
+        } else if hud == nil, !isPreview, bounds.height > 300 {
+            let h = HUDController()
+            layer?.addSublayer(h.root)
+            hud = h
+            lastHUDSize = .zero        // force re-layout on next frame
+        }
+    }
 
     override func startAnimation() {
         super.startAnimation()
