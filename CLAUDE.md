@@ -47,6 +47,16 @@ subtype, scn.z = free per-subtype param) and the subtype ranges in Director.
 - Manual run: `open -a ScreenSaverEngine` — dismisses on ANY input; screenshots of
   it need Screen Recording permission (`screencapture -x /tmp/x.png`).
 
+## Volumetric effects
+
+The galaxy close-approach is a 10-step jittered ray-march through
+`galaxyDensity3D` (emission + absorption). Pattern to reuse for other
+volumetrics: early-out on cheap base density BEFORE the fbm call; suppress
+high-frequency angular terms near r=0 (log-spiral cos stripes the core);
+cover representation handoffs (sprite -> volume) with a dust-veil pulse, not
+a bare crossfade — two mismatched projections of the same object look like
+two objects.
+
 ## NASA seed images (deepfield scenes)
 
 - Only files verifiably from https://images.nasa.gov go in SeedImages/ — record
