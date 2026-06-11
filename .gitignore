@@ -1,0 +1,12 @@
+# build artifacts
+build/
+
+# rendered QA frames (regenerate with ./build.sh preview)
+Preview/
+
+# images without verified NASA provenance — must never be published
+SeedImages/unverified/
+
+# local tooling state
+.claude/
+.DS_Store
