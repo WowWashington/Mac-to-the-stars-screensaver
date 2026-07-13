@@ -1181,42 +1181,116 @@ float3 dysonSwarmScene(float2 uv, float t, float seed, float4 pal, float gt, flo
     return col;
 }
 
+// Accretion disk emission at a geodesic/disk-plane crossing. hit is in BH
+// frame (disk in y=0, horizon r=1), rd the photon's travel direction there.
+float3 bhDisk(float3 hit, float3 rd, float seed, float gt, float spinDir,
+              thread float &alpha) {
+    float hr = length(hit.xz);
+    float edge = smoothstep(2.55, 2.95, hr) * smoothstep(7.6, 5.4, hr);
+    if (edge < 0.003) { alpha = 0.0; return float3(0.0); }
+
+    // differentially rotating turbulence: each radius co-rotates at its own
+    // Keplerian rate, so spiral streaks shear out on their own (no seam)
+    float om = spinDir * 1.9 / (hr * sqrt(hr));
+    float2 q = rot2(om * gt) * hit.xz;
+    float dens = 0.35 + 0.90 * fbm(float3(q * 1.15, seed * 9.0), 3);
+    dens *= 0.72 + 0.28 * sin(hr * 7.0 + (dens - 0.5) * 6.0 + seed * 31.0);
+
+    // temperature falls with radius: white-hot ISCO -> orange -> deep red
+    float3 tc = mix(float3(1.05, 0.98, 0.92), float3(1.0, 0.60, 0.22),
+                    smoothstep(2.7, 4.6, hr));
+    tc = mix(tc, float3(0.55, 0.20, 0.07), smoothstep(4.6, 7.4, hr));
+    float heat = pow(2.8 / hr, 2.2);
+
+    // relativistic beaming: approaching side blasts brighter and bluer
+    float beta = 0.55 / sqrt(hr);
+    float3 vdir = spinDir * normalize(float3(hit.z, 0.0, -hit.x));
+    float dop = clamp(1.0 / pow(max(1.0 + beta * dot(vdir, rd), 0.25), 3.0), 0.08, 4.5);
+    float3 shift = mix(float3(1.12, 0.85, 0.62), float3(0.84, 0.93, 1.22),
+                       clamp((dop - 0.6) * 0.9, 0.0, 1.0));
+    float gz = sqrt(max(1.0 - 1.0 / hr, 0.0));   // gravitational redshift dims inner rim
+
+    // Sgr A*-style flare: a white-hot blob on a tight Keplerian orbit
+    float sr = 3.3;
+    float sa = seed * 6.28 - spinDir * 1.9 / (sr * sqrt(sr)) * gt;
+    float3 spd = hit - float3(cos(sa) * sr, 0.0, sin(sa) * sr);
+    float spot = exp(-dot(spd, spd) * 6.0);
+
+    alpha = clamp(edge * (0.30 + dens) * 0.85, 0.0, 0.95);
+    return (tc * dens * 1.9 + float3(1.0, 0.96, 0.88) * spot * 8.0)
+           * heat * edge * dop * shift * gz;
+}
+
+// Ray-marched Schwarzschild black hole (rs = 1). Null rays bend under
+// a = -1.5 h^2 p / r^5 (h = |p x v| conserved) — the standard geodesic
+// approximation — so the photon ring, the Einstein-lensed starfield and the
+// disk wrapping over/under the shadow all EMERGE from the integration;
+// nothing here is painted on.
 float3 blackHoleScene(float2 uv, float t, float seed, float4 pal, float gt, float dur) {
     float prog = clamp(t / dur, 0.0, 1.0);
-    float sp = smoothstep(0.0, 1.0, prog);
-    float side = hash11(seed * 6.1) > 0.5 ? 1.0 : -1.0;
+    float spinDir = hash11(seed * 6.1) > 0.5 ? 1.0 : -1.0;
 
-    float scale = mix(0.05, 1.15, smoothstep(0.0, 0.9, prog));
-    float2 p0 = mix(float2(0.40 * side, 0.16), float2(-0.12 * side, -0.04), sp);
-    float2 q = (uv - p0) / scale;
-    float r = length(q);
+    // approach from a distant dot to a close pass, then orbit slowly
+    float dist = mix(55.0, 12.0, smoothstep(0.0, 0.8, prog));
+    float az = gt * 0.045 + seed * 6.28;
+    float inc = mix(0.12, 0.40, hash11(seed * 2.3)) + 0.05 * sin(gt * 0.05);
 
-    // gravitational lensing of the background
-    float2 dir = r > 1e-3 ? q / r : float2(0.0);
-    float defl = 0.030 / (r * r + 0.012);
-    float2 lensUV = uv - dir * defl * scale;
-    float3 col = spaceBG(lensUV + seed * 3.0, seed + 6.0, pal, gt, 0.4);
+    uv = rot2(0.04 * sin(gt * 0.035)) * uv;
+    float3 ro = dist * float3(cos(inc) * cos(az), sin(inc), cos(inc) * sin(az));
+    float3 fwd = -normalize(ro);
+    float3 rgt = normalize(cross(float3(0.0, 1.0, 0.0), fwd));
+    float3 upv = cross(fwd, rgt);
+    float3 rd = normalize(fwd * 1.5 + rgt * uv.x + upv * uv.y);
 
-    // accretion disk: inclined, turbulent, doppler-shifted
-    float2 dq = q;
-    dq.y *= mix(2.6, 4.0, hash11(seed * 3.7));
-    float dr = length(dq);
-    float da = atan2(dq.y, dq.x);
-    float ann = smoothstep(0.50, 0.40, dr) * smoothstep(0.125, 0.155, dr);
-    float swirl = fbm(float3(dr * 11.0 - gt * 0.55, da * 2.5 + dr * 9.0 - gt * 0.8, seed * 11.0), 4);
-    float doppler = 0.50 + 0.50 * sin(da + 1.7);
-    float heat = smoothstep(0.50, 0.16, dr);          // white-hot inner edge -> red outer
-    float3 hot = mix(float3(0.9, 0.30, 0.08), float3(1.0, 0.97, 0.88), heat * (0.4 + 0.6 * swirl));
-    col += hot * ann * (0.25 + 2.1 * pow(swirl, 1.7)) * (0.30 + 0.90 * doppler) * 2.2;
+    // skip the flat region analytically: march only inside r = R0
+    const float R0 = 9.5;
+    float3 p = ro;
+    float b2 = dot(ro, ro) - dot(ro, rd) * dot(ro, rd);
+    bool misses = dot(ro, ro) > R0 * R0 && b2 > R0 * R0;
+    if (!misses && dot(ro, ro) > R0 * R0) {
+        float tc0 = -dot(ro, rd) - sqrt(max(R0 * R0 - b2, 0.0));
+        p = ro + rd * max(tc0, 0.0);
+    }
 
-    // event horizon shadow, then photon ring on top
-    col *= smoothstep(0.105, 0.135, r);
-    float ring = exp(-pow(abs(r - 0.165) * 70.0, 1.6));
-    col += float3(1.0, 0.85, 0.6) * ring * 1.6;
+    float3 v = rd;
+    float3 hv = cross(p, v);
+    float h2 = dot(hv, hv);
+    float3 col = float3(0.0);
+    float T = 1.0;                       // transmittance front-to-back
+    bool captured = false;
+    int emCount = 0;
 
-    // faint relativistic jet, fading with distance
-    float jet = exp(-q.x * q.x * 900.0) * smoothstep(0.75, 0.22, abs(q.y)) * smoothstep(0.14, 0.30, abs(q.y));
-    col += float3(0.55, 0.7, 1.0) * jet * 0.10;
+    if (!misses) {
+        for (int i = 0; i < 110; i++) {
+            float r2 = dot(p, p);
+            float r = sqrt(r2);
+            if (r < 0.98) { captured = true; break; }
+            if (r2 > R0 * R0 + 1.0 && dot(p, v) > 0.0) break;   // escaped
+            float dt = clamp(r * 0.09, 0.02, 0.35);
+            v = normalize(v - 1.5 * h2 * p / (r2 * r2 * r) * dt);
+            float3 np = p + v * dt;
+            if (p.y * np.y < 0.0 && emCount < 4) {              // disk-plane crossing
+                float3 hit = mix(p, np, p.y / (p.y - np.y));
+                float a;
+                float3 e = bhDisk(hit, v, seed, gt, spinDir, a);
+                if (a > 0.0) {
+                    col += T * e;
+                    T *= (1.0 - a);
+                    emCount++;
+                    if (T < 0.02) break;
+                }
+            }
+            p = np;
+        }
+    }
+
+    // escaped rays sample the background along their FINAL bent direction —
+    // this is what smears stars into Einstein arcs around the shadow
+    if (!captured && T > 0.02) {
+        float3 vc = float3(dot(v, rgt), dot(v, upv), dot(v, fwd));
+        float2 bg = vc.xy * 1.4 / (1.0 + max(vc.z, -0.85));
+        col += T * spaceBG(bg + seed * 5.0, seed + 6.0, pal, gt, 0.38);
+    }
     return col;
 }
 

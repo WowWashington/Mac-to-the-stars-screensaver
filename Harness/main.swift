@@ -89,6 +89,8 @@ var cases: [(String, Uniforms)] = [
     ("26_dyson_entry",     uni(type: .encounter, t: 24.5, seed: 933, subtype: 0, flags: 2, dur: 56, pal: palBlue)),
     ("27_dyson_swarm",     uni(type: .encounter, t: 16, seed: 318, subtype: 3, dur: 32, pal: palTeal)),
     ("14_blackhole_mid",   uni(type: .encounter, t: 17, seed: 271, subtype: 1, dur: 30, pal: palBlue)),
+    ("14b_blackhole_close", uni(type: .encounter, t: 27, seed: 271, subtype: 1, dur: 30, pal: palBlue)),
+    ("14c_blackhole_far",  uni(type: .encounter, t: 4, seed: 88, subtype: 1, dur: 30, pal: palTeal)),
     ("15_comets_mid",      uni(type: .encounter, t: 15, seed: 909, subtype: 2, dur: 30, pal: palTeal)),
 ]
 
