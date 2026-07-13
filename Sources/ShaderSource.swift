@@ -294,11 +294,11 @@ float3 galaxyVolume(float3 gro, float3 grd, float seed, float4 pal, float gt) {
 
     float3 armCol = tint(pal.y, 0.55) * float3(0.85, 0.92, 1.12);
     float3 coreCol = float3(1.0, 0.85, 0.62);
-    float ds = (t1 - t0) / 10.0;
+    float ds = (t1 - t0) / 12.0;
     float3 acc = float3(0.0);
     float T = 1.0;
     float jit = hash21(grd.xy * 731.7 + seed) * ds;   // dither against banding
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < 12; i++) {
         float tt = t0 + (float(i) + 0.5) * ds + jit;
         float3 p = gro + grd * tt;
         float dens = galaxyDensity3D(p, seed, arms, wind, dir, armK);
@@ -1438,8 +1438,9 @@ float3 pulsarScene(float2 uv, float t, float seed, float4 pal, float gt, float d
     float nd = length(npos);
     float neb = fbm(float3(npos * 3.2 + seed, gt * 0.03), 4);
     float fil = pow(neb, 2.4) * exp(-nd * mix(6.5, 2.2, sp));   // compact when far
-    col += mix(neb1, neb2, neb) * fil * 0.55 * (0.7 + 0.6 * pulse);
-    float shell = pow(0.5 + 0.5 * sin((nd * 4.0 - gt / period) * 6.28318), 6.0);
+    col += mix(neb1, neb2, neb) * fil * 0.55 * (0.85 + 0.25 * pulse);
+    // fbm-displaced phase breaks the shells into filamentary arcs, not contour rings
+    float shell = pow(0.5 + 0.5 * sin((nd * 4.0 + (neb - 0.5) * 0.9 - gt / period) * 6.28318), 6.0);
     col += neb2 * shell * exp(-nd * mix(6.5, 2.6, sp)) * 0.22 * min(1.5 / P.z * 3.0, 1.0);
 
     // faint equatorial wind torus (perpendicular to the spin axis)
@@ -1479,8 +1480,8 @@ float3 pulsarScene(float2 uv, float t, float seed, float4 pal, float gt, float d
     col += hot * exp(-ds * ds * mix(9000.0, 1200.0, sp)) * starBr;
     col += hot * exp(-ds * mix(130.0, 14.0, sp)) * starBr * 0.4;
 
-    // subtle scene-wide bloom lift on the pulse — visible even from afar (the hook)
-    col += hot * pulse * 0.14;
+    // pulse bloom concentrated around the star — flashes without fogging the frame
+    col += hot * pulse * 0.22 * exp(-ds * 2.2);
     return col;
 }
 
