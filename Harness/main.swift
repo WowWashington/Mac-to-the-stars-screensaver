@@ -93,6 +93,11 @@ var cases: [(String, Uniforms)] = [
     ("14c_blackhole_far",  uni(type: .encounter, t: 4, seed: 88, subtype: 1, dur: 30, pal: palTeal)),
     ("14d_blackhole_plunge", uni(type: .encounter, t: 29.5, seed: 271, subtype: 1, dur: 30, pal: palBlue)),
     ("15_comets_mid",      uni(type: .encounter, t: 15, seed: 909, subtype: 2, dur: 30, pal: palTeal)),
+    // PULSAR (encounter subtype 4) — far flickering dot -> close beam sweep past camera
+    ("43_pulsar_far",         uni(type: .encounter, t: 3.5, seed: 512, subtype: 4, dur: 30, pal: palTeal)),
+    ("44_pulsar_mid",         uni(type: .encounter, t: 16,  seed: 512, subtype: 4, dur: 30, pal: palBlue)),
+    ("45_pulsar_close_sweep", uni(type: .encounter, t: 28,  seed: 512, subtype: 4, dur: 30, pal: palWarm)),
+    ("46_pulsar_pulse",       uni(type: .encounter, t: 22,  seed: 271, subtype: 4, dur: 30, pal: palBlue)),
     // HOME SYSTEM tour (scene 6) — seed 300 walks Sun/Venus/Earth+Moon/Mars/Jupiter/Saturn
     ("30_home_sun_approach", uni(type: .home, t: 3.5, seed: 300, dur: 66, pal: palWarm)),
     ("31_home_venus_mid",    uni(type: .home, t: 14.6, seed: 300, dur: 66, pal: palBlue)),
@@ -247,6 +252,7 @@ if CommandLine.arguments.contains("--bench") {
     bench("dyson_interior", uni(type: .encounter, t: 33, seed: 933, subtype: 0, flags: 2, dur: 56, pal: palBlue))
     bench("dyson_swarm", uni(type: .encounter, t: 16, seed: 318, subtype: 3, dur: 32, pal: palTeal))
     bench("comets", uni(type: .encounter, t: 15, seed: 909, subtype: 2, dur: 30, pal: palTeal))
+    bench("pulsar", uni(type: .encounter, t: 16, seed: 512, subtype: 4, dur: 30, pal: palBlue))
     bench("home_earth", uni(type: .home, t: 27.0, seed: 300, dur: 66, pal: palBlue))
     bench("home_saturn", uni(type: .home, t: 60.0, seed: 300, dur: 66, pal: palWarm))
     var btrans = uni(type: .warp, t: 1.0, seed: 77, dur: 9, pal: palTeal)

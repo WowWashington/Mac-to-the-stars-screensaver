@@ -1379,12 +1379,116 @@ float3 cometScene(float2 uv, float t, float seed, float4 pal, float gt, float du
     return col;
 }
 
+// ---------- encounter subtype 4: pulsar ----------
+// A rapidly spinning neutron star: a brilliant blue-white point, two lighthouse
+// beams from the magnetic poles (tilted off the spin axis, so the pair rakes a
+// cone and the scene PULSES when a beam sweeps the camera), a wispy pulsar-wind
+// nebula with rotation-synced ripple shells, and a faint equatorial wind torus.
+
+// closest distance between the camera ray (origin, dir rd) and a beam ray
+// (origin bo, dir bd, length L). Fills s (param along beam) and u (along ray).
+// When a beam points at the camera the line collapses onto the star -> a bright
+// foreshortened blob = the pulse; broadside it reads as a long luminous cone.
+float rayBeamDist(float3 rd, float3 bo, float3 bd, float L, thread float &s, thread float &u) {
+    float e = dot(rd, bd);
+    float3 w0 = -bo;
+    float d1 = dot(rd, w0);
+    float d2 = dot(bd, w0);
+    float denom = max(1.0 - e * e, 1e-4);
+    u = max((e * d2 - d1) / denom, 0.0);       // along camera ray
+    s = clamp((d2 - e * d1) / denom, 0.0, L);  // along beam
+    return length(rd * u - (bo + bd * s));
+}
+
+float3 pulsarScene(float2 uv, float t, float seed, float4 pal, float gt, float dur) {
+    float prog = clamp(t / dur, 0.0, 1.0);
+    float sp = smoothstep(0.0, 1.0, prog);
+    float3 rd = normalize(float3(uv, 1.5));
+
+    // approach: the star flies in from a distant dot to a close side-pass
+    float dist = mix(30.0, 3.2, pow(sp, 1.25));
+    float side = hash11(seed * 5.5) > 0.5 ? 1.0 : -1.0;
+    float2 off = float2(side * (0.15 + 0.45 * sp), 0.10 * sin(prog * 3.1 + seed));
+    float3 P = float3(off * dist * 0.28, dist);        // star position (grows as dist shrinks)
+    float2 c = P.xy / P.z * 1.5;                       // screen projection of the star
+    float3 toCam = normalize(-P);
+
+    // spin axis tilted in view; magnetic axis offset by obliquity, precessing
+    float3 S = normalize(float3(0.28 * sin(seed * 2.0), 0.85, 0.32 * cos(seed * 3.7)));
+    float3 e1 = normalize(cross(S, float3(0.0, 0.0, 1.0)) + 1e-4);
+    float3 e2 = cross(S, e1);
+    float period = mix(0.8, 2.5, hash11(seed * 7.3));  // rotation period, seconds
+    float phi = gt * 6.28318 / period;
+    float obl = mix(0.4, 0.95, hash11(seed * 11.1));   // magnetic obliquity
+    float3 M = normalize(cos(obl) * S + sin(obl) * (cos(phi) * e1 + sin(phi) * e2));
+
+    float3 neb1 = tint(pal.x, 0.7);
+    float3 neb2 = tint(pal.y, 0.8);
+    float3 hot = float3(0.72, 0.85, 1.0);              // synchrotron blue-white
+    float3 col = spaceBG(uv * 0.9 + seed, seed + 9.0, pal, gt, 0.35);
+
+    // pulse: a beam pointed near the camera flashes the scene (not a white-out)
+    float al = max(dot(M, toCam), dot(-M, toCam));
+    float pulse = smoothstep(0.80, 0.995, al);
+
+    // pulsar-wind nebula: wispy filaments + rotation-synced expanding shells
+    float2 npos = uv - c;
+    float nd = length(npos);
+    float neb = fbm(float3(npos * 3.2 + seed, gt * 0.03), 4);
+    float fil = pow(neb, 2.4) * exp(-nd * mix(6.5, 2.2, sp));   // compact when far
+    col += mix(neb1, neb2, neb) * fil * 0.55 * (0.7 + 0.6 * pulse);
+    float shell = pow(0.5 + 0.5 * sin((nd * 4.0 - gt / period) * 6.28318), 6.0);
+    col += neb2 * shell * exp(-nd * mix(6.5, 2.6, sp)) * 0.22 * min(1.5 / P.z * 3.0, 1.0);
+
+    // faint equatorial wind torus (perpendicular to the spin axis)
+    if (hash11(seed * 2.7) > 0.35) {
+        float Rt = 0.6;
+        float tg = 0.0;
+        for (int k = 0; k < 24; k++) {
+            float th = float(k) / 24.0 * 6.28318;
+            float3 Q = P + Rt * (cos(th) * e1 + sin(th) * e2);
+            float2 qs = Q.xy / Q.z * 1.5;
+            float dd = length(uv - qs);
+            tg += exp(-dd * dd * 320.0);
+        }
+        col += mix(neb1, hot, 0.45) * tg * 0.055 * (0.6 + 0.4 * sin(gt * 0.5 + seed));
+    }
+
+    // the two lighthouse beams (luminous cones opening from the poles)
+    for (int b = 0; b < 2; b++) {
+        float3 bd = (b == 0) ? M : -M;
+        float s, u;
+        float dl = rayBeamDist(rd, P, bd, mix(4.0, 18.0, sp), s, u);   // short when far, grows in
+        float width = 0.02 + 0.06 * s;                 // cone opens with distance
+        float prof = exp(-(dl * dl) / (width * width));
+        float falloff = exp(-s * 0.15);                // brightest near the star
+        float wisp = 0.6 + 0.4 * fbm(float3(s * 1.4, phi * 0.5 + float(b) * 3.0, seed * 4.0 + gt * 0.2), 3);
+        float aim = dot(bd, toCam);                    // +1 = pointed at us
+        float beamBoost = 0.4 + 1.6 * smoothstep(-0.2, 1.0, aim);
+        col += hot * prof * falloff * wisp * beamBoost * 1.35;
+    }
+
+    // the neutron star: an intense point (never a disc) with a tight bloom
+    float ds = length(uv - c);
+    float starBr = 2.2 + 6.5 * pulse;
+    float coreR = mix(0.004, 0.02, sp);
+    col += hot * smoothstep(coreR, coreR * 0.35, ds) * starBr * 2.0;
+    // blooms tighten with distance so the opening reads as a tiny point
+    col += hot * exp(-ds * ds * mix(9000.0, 1200.0, sp)) * starBr;
+    col += hot * exp(-ds * mix(130.0, 14.0, sp)) * starBr * 0.4;
+
+    // subtle scene-wide bloom lift on the pulse — visible even from afar (the hook)
+    col += hot * pulse * 0.14;
+    return col;
+}
+
 float3 encounterScene(float2 uv, float t, float4 scn, float4 pal, float gt) {
     int sub = int(scn.y + 0.5);
     float dur = max(scn.w, 1.0);
     if (sub == 0) return dysonScene(uv, t, scn.x, pal, gt, dur, int(scn.z + 0.5));
     if (sub == 1) return blackHoleScene(uv, t, scn.x, pal, gt, dur);
     if (sub == 3) return dysonSwarmScene(uv, t, scn.x, pal, gt, dur);
+    if (sub == 4) return pulsarScene(uv, t, scn.x, pal, gt, dur);
     return cometScene(uv, t, scn.x, pal, gt, dur);
 }
 

@@ -104,8 +104,8 @@ final class Director {
             duration = Float.random(in: 7...10, using: &r)
         case .encounter:
             // 0 dyson sphere (flags = stage: 0 ring, 1 partial, 2 full fly-through),
-            // 1 black hole, 2 comet swarm, 3 dyson swarm
-            subtype = Float(Int.random(in: 0...3, using: &r))
+            // 1 black hole, 2 comet swarm, 3 dyson swarm, 4 pulsar
+            subtype = Float(Int.random(in: 0...4, using: &r))
             if subtype == 0 {
                 let stage = Int.random(in: 0...2, using: &r)
                 flags = Float(stage)
@@ -211,8 +211,8 @@ final class Director {
             let cls = ["CLASS-M SYS", "CLASS-J SYS", "CLASS-Y SYS", "CLASS-P SYS"]
             return "\(designation(&r)) \(cls[min(max(subtype, 0), 3)])"
         case .encounter:
-            let what = ["DYSON STRUCTURE", "SINGULARITY", "COMET SWARM", "DYSON SWARM"]
-            return "\(what[min(max(subtype, 0), 3)]) \(designation(&r))"
+            let what = ["DYSON STRUCTURE", "SINGULARITY", "COMET SWARM", "DYSON SWARM", "PULSAR"]
+            return "\(what[min(max(subtype, 0), 4)]) \(designation(&r))"
         case .warp:
             return "FTL CORRIDOR"
         case .deepfield:
