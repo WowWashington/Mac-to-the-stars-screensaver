@@ -75,7 +75,7 @@ var cases: [(String, Uniforms)] = [
     ("06_planet_terran",   uni(type: .planet, t: 19, seed: 88,  subtype: 0, dur: 42, pal: palBlue)),
     ("07_planet_gas_ring", uni(type: .planet, t: 20, seed: 251, subtype: 1, flags: 1, dur: 42, pal: palWarm)),
     ("08_planet_lava",     uni(type: .planet, t: 18, seed: 333, subtype: 2, dur: 42, pal: palWarm)),
-    ("09_planet_ice",      uni(type: .planet, t: 27, seed: 555, subtype: 3, flags: 1, dur: 42, pal: palTeal)),
+    ("09_planet_ice",      uni(type: .planet, t: 21, seed: 555, subtype: 3, flags: 1, dur: 42, pal: palTeal)),
     ("18_system_far",      uni(type: .planet, t: 5,  seed: 88,  subtype: 0, dur: 42, pal: palBlue)),
     ("19_system_a",        uni(type: .planet, t: 13, seed: 1234, subtype: 1, dur: 42, pal: palTeal)),
     ("20_system_b",        uni(type: .planet, t: 13, seed: 4242, subtype: 0, dur: 42, pal: palWarm)),

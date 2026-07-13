@@ -388,7 +388,7 @@ float3 galaxyScene(float2 uv, float t, float4 scn, float4 pal, float gt,
     float ease = smoothstep(0.0, 1.0, prog);
 
     uv = rot2(gt * 0.006 + 0.04 * sin(gt * 0.027)) * uv;
-    float3 col = spaceBG(uv * 0.8 + 3.0, seed + 0.5, pal, gt, 0.32);
+    float3 col = spaceBG(uv * 0.8 + 3.0, seed + 0.5, pal, gt, hasImg ? 0.22 : 0.32);
 
     // approach: galaxy grows; we aim toward an arm, not the core
     float zoom = mix(0.10, 4.2, pow(ease, 2.2));   // grows from a distant dot
@@ -409,7 +409,9 @@ float3 galaxyScene(float2 uv, float t, float4 scn, float4 pal, float gt,
             // to the procedural disk as we close in
             float a = max(scn.z, 0.1);
             float2 iuv = float2(q.x / a, -q.y) / 3.4 + 0.5;
-            float3 ic = pow(max(img.sample(gsmp, iuv).rgb, 0.0), float3(2.2));
+            // shadow floor before gamma expansion: JPEG dark noise otherwise
+            // crushes into black speckles across the disk
+            float3 ic = pow(max(img.sample(gsmp, iuv).rgb, float3(0.02)), float3(2.2)) - 0.0004;
             float mask = smoothstep(1.70, 1.30, length(q));
             float photoW = 1.0 - smoothstep(0.30, 0.58, prog);
             col += ic * mask * photoW * 1.7 * (1.0 - vw);
@@ -530,7 +532,7 @@ float3 shadePlanet(float3 ns, float lat, float lon, int ptype, float seed, float
         // ice world
         float n = fbm(ns * 3.4 + seed * 5.0, 4);
         float cr = ridged(ns * 6.0 + seed * 9.0, 3);
-        col = mix(float3(0.55, 0.68, 0.80), float3(0.85, 0.92, 0.99), n);
+        col = mix(float3(0.55, 0.68, 0.80), float3(0.72, 0.80, 0.90), n);
         col *= 1.0 - 0.4 * smoothstep(0.55, 0.85, cr);   // dark crack lines
         float cap = smoothstep(0.5, 0.8, abs(lat));
         col = mix(col, float3(0.95, 0.97, 1.0), cap * 0.5);
@@ -615,7 +617,7 @@ float3 planetScene(float2 uv, float t, float4 scn, float4 pal, float gt) {
     float sunSide = hash11(seed * 8.1) > 0.5 ? 1.0 : -1.0;
     float3 sunC = float3(sunSide * mix(7.0, 13.0, hash11(seed * 8.1)),
                          (hash11(seed * 9.7) - 0.5) * 4.5,
-                         L * mix(0.55, 0.90, hash11(seed * 4.2)));
+                         L * mix(1.15, 1.45, hash11(seed * 4.2)));   // beyond the flight path: grows all scene, never blows out
     float Rs = mix(1.5, 2.4, hash11(seed * 6.6));
     float3 sunCol = starTemp(hash11(seed * 33.0) * 0.85);
     float3 sun2C = sunC;
@@ -715,7 +717,7 @@ float3 planetScene(float2 uv, float t, float4 scn, float4 pal, float gt) {
         }
         // atmosphere rim — only where sunlight actually scatters
         float fres = pow(1.0 - max(dot(n, -rd), 0.0), 2.6);
-        pcol += atmoCol * fres * (0.02 + 0.55 * pow(dif1, 0.7));
+        pcol += atmoCol * fres * (0.38 * pow(dif1, 0.9));   // rim gated to lit sky
 
         // anti-aliased limb
         float dcaB = length(cross(rd, C - ro));
@@ -1282,7 +1284,7 @@ float3 blackHoleScene(float2 uv, float t, float seed, float4 pal, float gt, floa
             float jw = 0.14 + 0.09 * ay;
             float jr = length(p.xz);
             if (jr < jw * 2.5 && ay > 0.4 && ay < 7.0) {
-                float knots = 0.55 + 0.45 * noise3(p * 2.1 - float3(0.0, gt * 2.6 * sign(p.y), 0.0));
+                float knots = 0.55 + 0.45 * noise3(p * 1.2 - float3(0.0, gt * 2.6 * sign(p.y), 0.0));
                 float jd = exp(-(jr * jr) / (jw * jw) * 2.2) * smoothstep(7.0, 1.2, ay)
                          * smoothstep(0.4, 0.9, ay) * knots;
                 float beam = p.y > 0.0 ? 1.7 : 0.5;      // approaching jet beams brighter
@@ -1508,11 +1510,11 @@ float3 rockBody(float2 v, float R, float rot, float seed, float2 sun, float4 pal
     // craters + mottling tumble with the body (sampled in its rotated frame)
     float2 rc = rot2(rot) * v;
     float crat = ridged(float3(rc * (5.5 / R), seed * 7.0 + 2.0), oct + 1);
-    float pock = smoothstep(0.52, 0.86, crat);
+    float pock = smoothstep(0.40, 0.78, crat);
     float mott = 0.70 + 0.42 * fbm(float3(rc * (3.0 / R), seed), oct);
-    float3 rock = mix(float3(0.20, 0.17, 0.15), float3(0.42, 0.35, 0.28), lump);
+    float3 rock = mix(float3(0.14, 0.12, 0.11), float3(0.34, 0.29, 0.24), lump);
     rock = mix(rock, tint(pal.x, 0.35), 0.15) * mott;
-    rock *= (1.0 - 0.5 * pock);                            // craters darken the body
+    rock *= (1.0 - 0.7 * pock);                            // craters darken the body
     float3 lit = rock * (0.035 + 1.0 * diff);              // faint ambient + lambert
     // grazing sunward-limb highlight that catches the terminator edge
     float limb = smoothstep(0.70, 1.0, rn);
@@ -1948,6 +1950,8 @@ float3 homeScene(float2 uv, float t, float4 scn, float4 pal, float gt) {
 
             float difG = dot(nGeo, sunToward);
             float dif = max(dot(n, sunToward), 0.0);
+            // venus: thick cloud deck scatters light past the terminator — wrap it
+            if (kind == 2) dif = pow(max(dot(n, sunToward) * 0.5 + 0.5, 0.0), 1.5);
             pcol = surf * (0.03 + 1.2 * pow(dif, 0.9));
             pcol *= (0.4 * sunColG + 0.6);
             // night-side city lights (earth)
@@ -1965,7 +1969,7 @@ float3 homeScene(float2 uv, float t, float4 scn, float4 pal, float gt) {
                           (kind == 5 || kind == 6) ? float3(0.80, 0.70, 0.52) :
                           float3(0.50, 0.50, 0.60);
             float fres = pow(1.0 - max(dot(nGeo, -rd), 0.0), 2.8);
-            pcol += atmo * fres * (0.02 + 0.5 * pow(dif, 0.7));
+            pcol += atmo * fres * (0.42 * pow(dif, 0.9));   // rim gated to lit sky
         }
 
         float dcaB = length(cross(rd, center - ro));
