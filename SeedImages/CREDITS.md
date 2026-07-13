@@ -17,6 +17,9 @@ and are works of the U.S. Government, not subject to copyright
 | PIA23126~large.jpg | PIA23126 | NASA/JPL-Caltech (Spitzer, Cepheus B & C) |
 | PIA10748-milkyway~large.jpg | PIA10748 | NASA/JPL-Caltech (R. Hurt) — face-on Milky Way artist concept; used for the opening galaxy view |
 | hubble-observes-one-of-a-kind-star-nicknamed-nasty_*.jpg | (Hubble, via images.nasa.gov) | NASA/ESA/Hubble |
+| andromeda-skyview-GSFC_e000833~orig.jpg | GSFC_20171208_Archive_e000833 | NASA Goddard — wide sky view toward Andromeda; deepfield pool only (filename deliberately avoids "galaxy"/"milky") |
+| whirlpool-galaxy-GSFC_e001925~large.jpg | GSFC_20171208_Archive_e001925 | NASA/ESA/Hubble (Hubble Heritage) — Whirlpool Galaxy M51 |
+| sombrero-galaxy-PIA15426~large.jpg | PIA15426 | NASA/JPL-Caltech (Spitzer) — Sombrero Galaxy M104, infrared |
 
 ## Public-domain stock (publicdomainpictures.net, uploader-declared CC0)
 
