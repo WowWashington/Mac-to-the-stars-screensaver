@@ -363,10 +363,10 @@ float3 cruiseScene(float2 uv, float t, float4 scn, float4 pal, float gt) {
     }
 
     // occasional distant galaxy drifting by
-    float ge = floor(t / 23.0 + 0.5);
+    float ge = floor(t / 23.0);
     float2 gh = hash22(float2(ge * 7.1, seed * 31.0));
     if (gh.x > 0.45) {
-        float gfr = fract(t / 23.0 + 0.5);
+        float gfr = fract(t / 23.0);
         float genv = sin(3.14159 * gfr);
         float2 gp = (gh - 0.5) * 1.1 * (1.0 + gfr * 0.5);
         float2 gq = rot2(gh.y * 6.28) * (uv - gp);
@@ -553,7 +553,7 @@ void sysPlanet(int i, float seed, float L, float heroType, float heroRings, floa
     float h1 = hash11(seed * 3.7 + fi * 17.1);
     float h2 = hash11(seed * 5.3 + fi * 9.7);
     float h3 = hash11(seed * 7.9 + fi * 5.3);
-    float z = L * (0.16 + 0.165 * fi + (h1 - 0.5) * 0.05);
+    float z = L * (0.28 + 0.13 * fi + (h1 - 0.5) * 0.05);
     R = mix(0.55, 1.5, h2);
     float lat;
     float phi;
@@ -563,7 +563,7 @@ void sysPlanet(int i, float seed, float L, float heroType, float heroRings, floa
         ptype = int(heroType + 0.5);
         rings = heroRings > 0.5;
     } else {
-        lat = mix(3.6, 9.5, h1);
+        lat = mix(5.0, 11.0, h1);
         phi = fi * 2.39996 + (h3 - 0.5) * 0.9; // golden-angle spread, no clumping
         ptype = int(floor(hash11(seed * 9.1 + fi * 3.3) * 3.999));
         rings = false;
@@ -615,7 +615,7 @@ float3 planetScene(float2 uv, float t, float4 scn, float4 pal, float gt) {
     float sunSide = hash11(seed * 8.1) > 0.5 ? 1.0 : -1.0;
     float3 sunC = float3(sunSide * mix(7.0, 13.0, hash11(seed * 8.1)),
                          (hash11(seed * 9.7) - 0.5) * 4.5,
-                         L * mix(0.35, 0.65, hash11(seed * 4.2)));
+                         L * mix(0.55, 0.90, hash11(seed * 4.2)));
     float Rs = mix(1.5, 2.4, hash11(seed * 6.6));
     float3 sunCol = starTemp(hash11(seed * 33.0) * 0.85);
     float3 sun2C = sunC;
@@ -843,7 +843,7 @@ float3 dysonExterior(float2 uv, float ap, float seed, float4 pal, float gt, floa
     float side = hash11(seed * 9.3) > 0.5 ? 1.0 : -1.0;
     float R = 2.6;
     float3 C;
-    C.z = mix(22.0, 1.2, sp);                      // journeys end AT the shell
+    C.z = mix(34.0, 1.2, sp);                      // journeys end AT the shell
     C.x = side * 0.25 * (1.0 - sp);
     C.y = 0.12 * sin(ap * 2.7 + seed) * (1.0 - sp);
 
@@ -996,7 +996,7 @@ float3 dysonRing(float2 uv, float t, float seed, float4 pal, float gt, float dur
     rd.x = rxy.x; rd.y = rxy.y;
 
     float side = hash11(seed * 9.3) > 0.5 ? 1.0 : -1.0;
-    float3 S = float3(side * (0.3 + 1.6 * sp * sp), 0.1 * sin(prog * 3.0 + seed), mix(19.0, -3.0, sp));
+    float3 S = float3(side * (0.3 + 1.6 * sp * sp), 0.1 * sin(prog * 3.0 + seed), mix(30.0, -3.0, sp));
     float3 axis = normalize(float3(0.30 * sin(seed * 2.0), 1.0, 0.22 * cos(seed * 5.0)));
     float Rb = 3.1;
     float halfW = 0.55;
@@ -1127,7 +1127,7 @@ float3 dysonSwarmScene(float2 uv, float t, float seed, float4 pal, float gt, flo
     // star drifts gently as we cruise past
     float side = hash11(seed * 5.5) > 0.5 ? 1.0 : -1.0;
     float2 ssun = float2(side * mix(0.25, -0.18, sp), 0.06 * sin(prog * 2.4 + seed));
-    float zoom = mix(0.55, 1.45, sp);              // whole swarm grows on approach
+    float zoom = mix(0.12, 1.45, pow(sp, 1.4));    // from a speck, accelerating on approach
     float2 q = (uv - ssun) / zoom;
 
     float3 sunCol = starTemp(hash11(seed * 31.0) * 0.8);
@@ -1166,7 +1166,11 @@ float3 dysonSwarmScene(float2 uv, float t, float seed, float4 pal, float gt, flo
         float2 d = rot2(he.y * 6.28 + fr * 0.4) * (uv - pp);
         float panel = smoothstep(0.055, 0.05, abs(d.x)) * smoothstep(0.035, 0.03, abs(d.y));
         float env = sin(3.14159 * fr);
-        float3 pc = float3(0.04, 0.045, 0.06) + sunCol * pow(max(0.0, sin(fr * 6.0 + he.y * 9.0)), 8.0) * 1.4;
+        float glint = pow(max(0.0, sin(fr * 6.0 + he.y * 9.0)), 8.0);
+        float across = 0.30 + 0.70 * smoothstep(-0.055, 0.055, d.x * sign(he.y - 0.5));
+        float cells = 0.80 + 0.20 * step(0.05, abs(fract(d.x * 22.0) - 0.5))
+                                  * step(0.08, abs(fract(d.y * 30.0) - 0.5));
+        float3 pc = (float3(0.04, 0.045, 0.06) + sunCol * glint * 1.1 * across) * cells;
         col = mix(col, pc, panel * env * 0.95);
         // blinking nav light
         col += float3(1.0, 0.2, 0.15) * exp(-dot(d - float2(0.05, 0.0), d - float2(0.05, 0.0)) * 4000.0)
@@ -1340,7 +1344,8 @@ float3 cometScene(float2 uv, float t, float seed, float4 pal, float gt, float du
 
     // hero comet crossing the frame once per visit
     float hside = hash11(seed * 31.0) > 0.5 ? 1.0 : -1.0;
-    float2 hp = mix(float2(-0.85 * hside, -0.30), float2(0.85 * hside, 0.22), smoothstep(0.05, 0.95, prog));
+    float2 hp = mix(float2(-1.15 * hside, -0.40), float2(1.15 * hside, 0.32), smoothstep(0.0, 1.0, prog));
+    float henv = sin(3.14159 * prog);             // enter/leave past the frame edge, softly
     float2 v = uv - hp;
     float d = length(v);
     float along = dot(v, tdir);
@@ -1353,9 +1358,9 @@ float3 cometScene(float2 uv, float t, float seed, float4 pal, float gt, float du
     float wi = 0.010 + along * 0.05;
     float ion = smoothstep(-0.01, 0.05, along) * exp(-along * 1.5) * exp(-perp * perp / max(wi * wi, 1e-5));
     float wisp = 0.6 + 0.6 * noise3(float3(along * 10.0, perp * 24.0, gt * 0.5));
-    col += head * float3(0.92, 0.96, 1.0)
+    col += (head * float3(0.92, 0.96, 1.0)
          + dust * float3(1.0, 0.9, 0.72) * 0.6 * wisp
-         + ion * float3(0.5, 0.72, 1.0) * 0.6;
+         + ion * float3(0.5, 0.72, 1.0) * 0.6) * henv;
     return col;
 }
 
@@ -1386,8 +1391,8 @@ float3 deepfieldScene(float2 uv, float t, float4 scn, float4 pal, float gt,
     float2 c = mix(c0, c1, prog);
     float hx = 0.5 * sa;
     float Kmax = min(0.39 * aspect / hx, 0.78);
-    float zdir = hash11(seed * 9.1) > 0.5 ? 1.0 : -1.0;
-    float K = Kmax * (0.86 + 0.10 * prog * zdir);
+    // dolly INTO the field: K shrinks so features grow — travel, not a slideshow
+    float K = Kmax * mix(0.95, 0.55, prog);
     float2 uvT = c + float2(uv.x / aspect, -uv.y) * K;
 
     float3 col = img.sample(smp, uvT).rgb;
@@ -1396,6 +1401,355 @@ float3 deepfieldScene(float2 uv, float t, float4 scn, float4 pal, float gt,
     // faint parallax starfield drifting in front of the photograph
     float2 sUV = uv * 7.0 + (c - 0.5) * 3.0 + seed * 19.0;
     col += starLayer(sUV, 0.05, seed + 4.0, gt) * 0.20;
+    return col * smoothstep(0.0, 0.12, prog);     // arrive out of the dark, no pop
+}
+
+// ---------- scene 6: HOME SYSTEM (our own Solar System, one stop at a time) ----------
+// kinds: 0 sun, 1 mercury, 2 venus, 3 earth, 4 mars, 5 jupiter, 6 saturn, 7 moon
+
+// dwell weight per kind -> leg duration; earth is the hero, dwells longest
+float dwellW(int kd) {
+    if (kd == 3) return 1.55;
+    if (kd == 0) return 1.00;
+    if (kd == 5) return 1.05;
+    if (kd == 6) return 1.15;
+    return 0.95;                        // mercury / venus / mars
+}
+// world radius of the body at a stop (recognizability over literal scale)
+float bodyR(int kd) {
+    if (kd == 0) return 2.20;
+    if (kd == 1) return 0.30;
+    if (kd == 2) return 0.42;
+    if (kd == 3) return 0.52;
+    if (kd == 4) return 0.34;
+    if (kd == 5) return 0.85;
+    if (kd == 6) return 0.75;
+    return 0.15;                        // moon
+}
+// forward distance at closest approach (smaller = bigger / closer pass)
+float bodyDClose(int kd) {
+    if (kd == 0) return 7.0;
+    if (kd == 1) return 3.1;
+    if (kd == 2) return 3.3;
+    if (kd == 3) return 2.9;           // earth: the closest pass
+    if (kd == 4) return 3.2;
+    if (kd == 5) return 4.7;
+    if (kd == 6) return 4.9;
+    return 2.9;
+}
+// halo tint used when a body is a distant approaching/receding dot
+float3 bodyTint(int kd) {
+    if (kd == 1) return float3(0.50, 0.48, 0.45);
+    if (kd == 2) return float3(0.90, 0.82, 0.55);
+    if (kd == 3) return float3(0.40, 0.60, 1.00);
+    if (kd == 4) return float3(0.80, 0.40, 0.25);
+    if (kd == 5) return float3(0.80, 0.70, 0.55);
+    if (kd == 6) return float3(0.85, 0.78, 0.60);
+    return float3(0.60, 0.60, 0.62);   // moon
+}
+// straight-line fly-by: the body starts a far dot ahead, eases past close, exits
+// to the side and behind — s is scene-seconds relative to the leg centre.
+float3 homeCenter(float s, float legHalf, float dClose, float2 drift, float2 off) {
+    float w = s / legHalf;
+    float aw = min(abs(w), 1.45);
+    float ease = sign(w) * pow(aw, 1.7);   // >1 exponent -> lingers near closest
+    float travel = ease * 42.0;
+    return float3(off.x + drift.x * ease, off.y + drift.y * ease, dClose - travel);
+}
+
+// fixed-body surface shading — no seeds, these are OUR planets
+float3 homeSurface(int kind, float3 ns, float lat, float lon, float gt,
+                   thread float3 &emis, thread float &oceanMask) {
+    emis = float3(0.0);
+    oceanMask = 0.0;
+    float3 col;
+    if (kind == 1) {
+        // mercury: gray, heavily cratered
+        float h = fbm(ns * 3.4 + 21.0, 5);
+        float cr = ridged(ns * 4.2 + 7.0, 4);
+        col = mix(float3(0.28, 0.27, 0.25), float3(0.52, 0.50, 0.47), h);
+        col *= 1.0 - 0.45 * smoothstep(0.5, 0.85, cr);
+    } else if (kind == 2) {
+        // venus: creamy, near-featureless cloud deck
+        float c = fbm(ns * 2.0 + float3(gt * 0.01, 0.0, 0.0) + 13.0, 4);
+        col = mix(float3(0.80, 0.71, 0.48), float3(0.97, 0.91, 0.72), c);
+        col = mix(col, float3(0.90, 0.83, 0.62), 0.45);
+    } else if (kind == 3) {
+        // EARTH: blue oceans, green/brown land, swirling clouds, ice caps, cities
+        float h = fbm(ns * 2.6 + 5.0, 6);
+        float sea = 0.545;                        // ~70% ocean, like the real thing
+        float land = smoothstep(sea - 0.02, sea + 0.02, h);
+        float3 ocean = mix(float3(0.015, 0.07, 0.22), float3(0.03, 0.20, 0.42),
+                           smoothstep(sea - 0.20, sea, h));
+        float3 veg = mix(float3(0.05, 0.28, 0.08), float3(0.24, 0.36, 0.13),
+                         smoothstep(sea, sea + 0.14, h));
+        float3 ground = mix(veg, float3(0.52, 0.44, 0.30), smoothstep(sea + 0.18, sea + 0.38, h));
+        col = mix(ocean, ground, land);
+        oceanMask = 1.0 - land;
+        float cap = smoothstep(0.66, 0.80, abs(lat) + 0.10 * fbm(ns * 5.0 + 31.0, 3));
+        col = mix(col, float3(0.94, 0.97, 1.0), cap);
+        float cl = smoothstep(0.50, 0.72,
+                    fbm(ns * 3.1 + float3(gt * 0.015, 0.0, gt * 0.006) + 9.0, 5));
+        float landNoCloud = land * (1.0 - cl);
+        col = mix(col, float3(1.0), cl * 0.9);
+        oceanMask *= (1.0 - cl);
+        // night-side city lights — sparse soft points, gated to dark side by caller
+        float2 cc = float2(lon * 58.0, lat * 44.0);
+        float2 cid = floor(cc);
+        float2 cf = fract(cc) - 0.5;
+        float cp = hash21(cid);
+        float2 jit = (hash22(cid) - 0.5) * 0.5;
+        float city = step(0.80, cp) * exp(-dot(cf - jit, cf - jit) * 26.0);
+        float flick = 0.7 + 0.3 * sin(gt * 3.0 + cp * 50.0);
+        emis = float3(1.0, 0.82, 0.48) * city * landNoCloud * flick;
+    } else if (kind == 4) {
+        // mars: rust red, dark albedo regions, polar cap
+        float h = fbm(ns * 3.0 + 17.0, 5);
+        col = mix(float3(0.42, 0.19, 0.09), float3(0.74, 0.37, 0.18), h);
+        float dark = smoothstep(0.35, 0.62, fbm(ns * 1.8 + 3.0, 4));
+        col = mix(col, float3(0.34, 0.17, 0.11), dark * 0.5);
+        float cap = smoothstep(0.80, 0.90, abs(lat));
+        col = mix(col, float3(0.95, 0.96, 1.0), cap);
+    } else if (kind == 5) {
+        // jupiter: tan/brown bands + Great Red Spot
+        float turb = fbm(ns * 2.6 + float3(gt * 0.01, 0.0, 0.0) + 9.0, 5);
+        float band = sin(lat * 14.0 + turb * 2.2);
+        float band2 = sin(lat * 7.0 - turb * 1.6);
+        float3 c1 = float3(0.86, 0.72, 0.50);   // tan zone
+        float3 c2 = float3(0.48, 0.32, 0.20);   // brown belt
+        float3 c3 = float3(0.94, 0.88, 0.76);   // bright zone
+        col = mix(c1, c2, smoothstep(-0.4, 0.4, band));
+        col = mix(col, c3, smoothstep(0.2, 0.9, band2) * 0.5);
+        col *= 0.92 + 0.16 * turb;
+        // Great Red Spot in the southern hemisphere
+        float slat = -0.34, slon = 1.4;
+        float2 sd = float2((lat - slat) * 2.4, sin(lon - slon - gt * 0.008) * cos(lat) * 1.3);
+        float spot = exp(-dot(sd, sd) * 6.0);
+        col = mix(col, float3(0.80, 0.30, 0.16), spot * 0.9);
+    } else if (kind == 6) {
+        // saturn: pale gold bands (rings drawn separately)
+        float turb = fbm(ns * 2.4 + float3(gt * 0.008, 0.0, 0.0) + 15.0, 4);
+        float band = sin(lat * 11.0 + turb * 2.5);
+        float3 c1 = float3(0.86, 0.77, 0.55);
+        float3 c2 = float3(0.72, 0.62, 0.42);
+        col = mix(c1, c2, 0.5 + 0.5 * band);
+        col *= 0.92 + 0.16 * turb;
+    } else {
+        // moon: gray with dark maria
+        float h = fbm(ns * 3.2 + 41.0, 5);
+        float maria = smoothstep(0.42, 0.60, fbm(ns * 1.6 + 5.0, 4));
+        col = mix(float3(0.36, 0.35, 0.33), float3(0.58, 0.57, 0.55), h);
+        col = mix(col, float3(0.20, 0.20, 0.21), maria * 0.6);
+        float cr = ridged(ns * 5.0 + 7.0, 4);
+        col *= 1.0 - 0.3 * smoothstep(0.6, 0.9, cr);
+    }
+    return col;
+}
+
+float3 homeScene(float2 uv, float t, float4 scn, float4 pal, float gt) {
+    float seed = scn.x;
+    float dur = max(scn.w, 1.0);
+
+    // itinerary of OUR system; two orderings for variety, earth always central
+    const int kA[6] = {0, 2, 3, 4, 5, 6};   // sun, venus, EARTH, mars, jupiter, saturn
+    const int kB[6] = {0, 1, 3, 4, 6, 5};   // sun, mercury, EARTH, mars, saturn, jupiter
+    bool va = hash11(seed * 3.3) > 0.5;
+
+    // per-leg durations from dwell weights
+    float legDur[6];
+    float Tc[6];
+    float sumW = 0.0;
+    for (int k = 0; k < 6; k++) { sumW += dwellW(va ? kA[k] : kB[k]); }
+    float acc = 0.0;
+    for (int k = 0; k < 6; k++) {
+        int kd = va ? kA[k] : kB[k];
+        legDur[k] = dwellW(kd) / sumW * dur;
+        Tc[k] = acc + legDur[k] * 0.5;
+        acc += legDur[k];
+    }
+
+    float3 ro = float3(0.0);
+    float3 rd = normalize(float3(uv, 1.45));
+    float2 rxy = rot2(0.03 * sin(gt * 0.05) + gt * 0.0018) * rd.xy;
+    rd.x = rxy.x; rd.y = rxy.y;
+
+    // one consistent light-source direction for the whole tour
+    float3 sunToward = normalize(float3(-0.62, 0.20, -0.24));
+    float3 sunColG = float3(1.0, 0.93, 0.78);
+
+    float3 col = spaceBG(uv + seed, seed + 2.0, pal, gt, 0.32);
+    // fly-through star layers streaming outward = a sense of travel
+    for (int i = 0; i < 3; i++) {
+        float fi = float(i);
+        float ph = fract(fi / 3.0 - t * 0.03 + hash11(seed * 2.0 + fi));
+        float depth = 0.06 + 0.94 * ph;
+        float2 q = uv * depth * 6.0 + (hash22(float2(fi, seed * 7.0)) - 0.5) * 9.0;
+        float fade = smoothstep(1.0, 0.8, ph) * smoothstep(0.0, 0.1, ph);
+        col += starLayerFast(q, 0.12, seed * 5.0 + fi * 13.0, gt) * fade * 0.5;
+    }
+
+    // place every stop's body along the fly path
+    float3 cen[6]; float Rr[6]; int kd6[6]; bool act[6];
+    float3 eCenter = float3(0.0); bool eAct = false;
+    for (int k = 0; k < 6; k++) {
+        int kd = va ? kA[k] : kB[k];
+        float fk = float(k);
+        float s = t - Tc[k];
+        float lh = legDur[k] * 0.5;
+        bool a = abs(s / lh) < 1.45;
+        float hk = hash11(seed * 1.7 + fk * 4.1);
+        float2 drift = float2(cos(hk * 6.28318), sin(hk * 6.28318)) * mix(2.6, 3.8, hash11(seed * 2.3 + fk));
+        float2 off = (hash22(float2(fk * 3.3, seed * 5.0)) - 0.5) * 0.5;
+        cen[k] = homeCenter(s, lh, bodyDClose(kd), drift, off);
+        Rr[k] = bodyR(kd);
+        kd6[k] = kd;
+        act[k] = a;
+        if (kd == 3) { eCenter = cen[k]; eAct = a; }
+    }
+
+    // the moon rides alongside earth during the hero leg — mostly lateral so it
+    // stays inside the (wide) frame rather than swinging behind in depth
+    float ma = gt * 0.22 + seed * 3.0;
+    float3 moonC = eCenter + float3(cos(ma) * 1.25, 0.30 * sin(ma * 0.6), sin(ma) * 0.55);
+    float moonR = 0.15;
+    bool moonAct = eAct;
+
+    // nearest sphere the ray hits
+    float bestT = 1e9; int bestI = -1;
+    for (int k = 0; k < 6; k++) {
+        if (!act[k]) continue;
+        float3 oc = ro - cen[k];
+        float b = dot(oc, rd);
+        float disc = b * b - (dot(oc, oc) - Rr[k] * Rr[k]);
+        if (disc > 0.0) {
+            float tH = -b - sqrt(disc);
+            if (tH > 0.0 && tH < bestT) { bestT = tH; bestI = k; }
+        }
+    }
+    if (moonAct) {
+        float3 oc = ro - moonC;
+        float b = dot(oc, rd);
+        float disc = b * b - (dot(oc, oc) - moonR * moonR);
+        if (disc > 0.0) {
+            float tH = -b - sqrt(disc);
+            if (tH > 0.0 && tH < bestT) { bestT = tH; bestI = 6; }
+        }
+    }
+
+    // sun corona + phase-lit halos of the other active bodies (approaching dots)
+    for (int k = 0; k < 6; k++) {
+        if (!act[k]) continue;
+        if (k == bestI && kd6[k] != 0) continue;
+        float3 w = cen[k] - ro;
+        if (dot(rd, w) <= 0.0) continue;
+        float dca = length(cross(rd, w));
+        if (kd6[k] == 0) {
+            float Rs = Rr[k];
+            col += sunColG * exp(-max(dca - Rs, 0.0) * (2.6 / Rs)) * 0.45;
+            col += sunColG * exp(-max(dca - Rs, 0.0) * (1.1 / Rs)) * 0.035;
+        } else if (dca > Rr[k]) {
+            float phase = 0.35 + 0.65 * max(dot(normalize(ro - cen[k]), sunToward), 0.0);
+            col += bodyTint(kd6[k]) * exp(-(dca - Rr[k]) * 6.0 / Rr[k]) * 0.35 * phase;
+        }
+    }
+    if (moonAct && bestI != 6) {
+        float3 w = moonC - ro;
+        if (dot(rd, w) > 0.0) {
+            float dca = length(cross(rd, w));
+            if (dca > moonR) col += bodyTint(7) * exp(-(dca - moonR) * 6.0 / moonR) * 0.25;
+        }
+    }
+
+    // shade the hero body we actually hit
+    if (bestI >= 0) {
+        float3 center = (bestI == 6) ? moonC : cen[bestI];
+        float R = (bestI == 6) ? moonR : Rr[bestI];
+        int kind = (bestI == 6) ? 7 : kd6[bestI];
+        float3 pos = ro + rd * bestT;
+        float3 nGeo = normalize(pos - center);
+
+        float3 pcol;
+        if (kind == 0) {
+            // sun surface: granulation + limb brightening
+            float gran = fbm(nGeo * 14.0 + float3(0.0, 0.0, gt * 0.06), 4);
+            float limb = pow(max(dot(nGeo, -rd), 0.0), 0.4);
+            float3 base = mix(float3(1.05, 0.62, 0.18), float3(1.05, 0.98, 0.75), gran);
+            pcol = base * (0.85 + 0.60 * limb);
+        } else {
+            // spin + tilt so features read as a rotating globe
+            float3 ns = nGeo;
+            float tilt = 0.24;
+            float2 nyz = rot2(tilt) * float2(ns.y, ns.z); ns.y = nyz.x; ns.z = nyz.y;
+            float spin = gt * 0.03 + float(kind) * 1.7;
+            float2 nxz = rot2(spin) * float2(ns.x, ns.z); ns.x = nxz.x; ns.z = nxz.y;
+            float lat = clamp(ns.y, -1.0, 1.0);
+            float lon = atan2(ns.z, ns.x);
+
+            float3 emis; float oceanMask;
+            float3 surf = homeSurface(kind, normalize(ns), lat, lon, gt, emis, oceanMask);
+
+            float3 n = nGeo;
+            if (kind == 1 || kind == 3 || kind == 4 || kind == 7) {
+                float3 t1 = normalize(cross(nGeo, float3(0.0, 1.0, 0.001)));
+                float3 t2 = cross(nGeo, t1);
+                float e = 0.02;
+                float h0 = fbm(ns * 6.0 + float(kind) * 5.0, 4);
+                float hx = fbm((ns + t1 * e) * 6.0 + float(kind) * 5.0, 4);
+                float hy = fbm((ns + t2 * e) * 6.0 + float(kind) * 5.0, 4);
+                n = normalize(nGeo + (t1 * (h0 - hx) + t2 * (h0 - hy)) * 1.4);
+            }
+
+            float difG = dot(nGeo, sunToward);
+            float dif = max(dot(n, sunToward), 0.0);
+            pcol = surf * (0.03 + 1.2 * pow(dif, 0.9));
+            pcol *= (0.4 * sunColG + 0.6);
+            // night-side city lights (earth)
+            float night = smoothstep(-0.02, -0.30, difG);
+            pcol += emis * night * 1.5;
+            // ocean glint
+            float spec = pow(max(dot(reflect(-sunToward, n), -rd), 0.0), 60.0);
+            pcol += sunColG * spec * oceanMask * dif * 0.7;
+            // sunset band along the terminator
+            float sunset = exp(-pow((difG - 0.02) * 8.0, 2.0));
+            if (kind == 3 || kind == 4) pcol += float3(0.95, 0.45, 0.2) * sunset * 0.16;
+            // atmosphere rim where sunlight scatters
+            float3 atmo = (kind == 3) ? float3(0.35, 0.55, 1.0) :
+                          (kind == 2) ? float3(0.90, 0.82, 0.55) :
+                          (kind == 5 || kind == 6) ? float3(0.80, 0.70, 0.52) :
+                          float3(0.50, 0.50, 0.60);
+            float fres = pow(1.0 - max(dot(nGeo, -rd), 0.0), 2.8);
+            pcol += atmo * fres * (0.02 + 0.5 * pow(dif, 0.7));
+        }
+
+        float dcaB = length(cross(rd, center - ro));
+        float alpha = smoothstep(R, R - (bestT * 0.002 + 0.001), dcaB);
+        col = mix(col, pcol, alpha);
+    }
+
+    // Saturn's rings — bright, prominent, depth-tested so the globe occludes them
+    for (int k = 0; k < 6; k++) {
+        if (!act[k] || kd6[k] != 6) continue;
+        float3 sc = cen[k]; float sR = Rr[k];
+        float3 rn = normalize(float3(0.34, 1.0, 0.16));
+        float denom = dot(rd, rn);
+        if (abs(denom) > 1e-4) {
+            float tp = dot(sc - ro, rn) / denom;
+            if (tp > 0.0 && tp < bestT) {
+                float3 hp = ro + rd * tp - sc;
+                float rr = length(hp) / sR;
+                if (rr > 1.18 && rr < 2.35) {
+                    float band = 0.5 + 0.5 * noise3(float3(rr * 55.0, 3.0, 1.0));
+                    float cassini = smoothstep(0.03, 0.07, abs(rr - 1.72));   // gap
+                    float edge = smoothstep(1.18, 1.26, rr) * smoothstep(2.35, 2.16, rr);
+                    float rl = 0.4 + 0.6 * abs(dot(rn, sunToward));
+                    float graze = smoothstep(0.02, 0.14, abs(denom));
+                    float3 ringCol = float3(0.87, 0.81, 0.63) * rl * (0.55 + 0.5 * band);
+                    col = mix(col, ringCol, clamp(edge * cassini * graze * (0.6 + 0.4 * band), 0.0, 0.92));
+                }
+            }
+        }
+    }
+
     return col;
 }
 
@@ -1408,6 +1762,7 @@ float3 renderScene(int type, float t, float4 scn, float4 pal, float2 uv, float g
     if (type == 2) return planetScene(uv, t, scn, pal, gt);
     if (type == 4) return encounterScene(uv, t, scn, pal, gt);
     if (type == 5) return deepfieldScene(uv, t, scn, pal, gt, img);
+    if (type == 6) return homeScene(uv, t, scn, pal, gt);
     return warpScene(uv, t, scn, pal, gt);
 }
 

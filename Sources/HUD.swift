@@ -187,6 +187,7 @@ final class HUDController {
         case .warp:      kindLabel = "WARP ACTIVE"
         case .encounter: kindLabel = "ENCOUNTER"
         case .deepfield: kindLabel = "DEEP FIELD OBS"
+        case .home:      kindLabel = "HOME SYSTEM"
         }
 
         titleL.string  = "GSV ODYSSEY · NAV"

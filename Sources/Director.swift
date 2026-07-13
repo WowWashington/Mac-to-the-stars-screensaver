@@ -15,7 +15,7 @@ struct SplitMix64: RandomNumberGenerator {
 }
 
 enum SceneKind: Int32 {
-    case cruise = 0, galaxy = 1, planet = 2, warp = 3, encounter = 4, deepfield = 5
+    case cruise = 0, galaxy = 1, planet = 2, warp = 3, encounter = 4, deepfield = 5, home = 6
 }
 
 struct SceneSpec {
@@ -116,6 +116,9 @@ final class Director {
             }
         case .deepfield:
             duration = Float.random(in: 24...32, using: &r)   // subtype/flags set by caller
+        case .home:
+            // a full tour of our Solar System, one body at a time
+            duration = Float.random(in: 62...74, using: &r)
         }
         return SceneSpec(kind: kind, params: SIMD4(seed, subtype, flags, duration), palette: palette)
     }
@@ -136,19 +139,22 @@ final class Director {
         var scenes: [SceneSpec] = []
         let count = Int.random(in: 2...3, using: &rng)
         var lastKind: SceneKind = .warp
+        var homeUsed = false           // the home-system tour appears at most once per region
         for _ in 0..<count {
             var kind: SceneKind
             let canDeepfield = !imageAspects.isEmpty
             repeat {
                 let roll = Float.random(in: 0...1, using: &rng)
                 if canDeepfield {
-                    kind = roll < 0.21 ? .cruise : roll < 0.47 ? .galaxy : roll < 0.76 ? .planet
-                         : roll < 0.89 ? .encounter : .deepfield
+                    kind = roll < 0.20 ? .cruise : roll < 0.44 ? .galaxy : roll < 0.72 ? .planet
+                         : roll < 0.84 ? .encounter : roll < 0.92 ? .home : .deepfield
                 } else {
-                    kind = roll < 0.24 ? .cruise : roll < 0.52 ? .galaxy : roll < 0.84 ? .planet : .encounter
+                    kind = roll < 0.23 ? .cruise : roll < 0.49 ? .galaxy : roll < 0.79 ? .planet
+                         : roll < 0.90 ? .encounter : .home
                 }
-            } while kind == lastKind   // avoid identical back-to-back scenes
+            } while kind == lastKind || (kind == .home && homeUsed)   // no repeats back-to-back or twice-per-region
             lastKind = kind
+            if kind == .home { homeUsed = true }
             var scene = Director.makeScene(kind, palette: palette, rng: &rng)
             scene.sector = sector
             if kind == .deepfield {
@@ -211,7 +217,37 @@ final class Director {
             return "FTL CORRIDOR"
         case .deepfield:
             return "ARCHIVE OBSERVATION"
+        case .home:
+            return "SOL · HOME SYSTEM"
         }
+    }
+
+    /// The name of the body currently being visited during a home-system tour.
+    /// Mirrors the shader's itinerary/timing so the HUD calls out each stop.
+    private static func homeLegName(seed: Float, dur: Double, t: Double) -> String {
+        // must match ShaderSource hash11 + itinerary
+        func hash11(_ p0: Float) -> Float {
+            var p = (p0 * 0.1031).truncatingRemainder(dividingBy: 1.0)
+            if p < 0 { p += 1 }
+            p *= p + 33.33
+            p *= p + p
+            return p - p.rounded(.down)
+        }
+        let va = hash11(seed * 3.3) > 0.5
+        let kinds = va ? [0, 2, 3, 4, 5, 6] : [0, 1, 3, 4, 6, 5]
+        let names = ["SOL (G-TYPE STAR)", "MERCURY", "VENUS", "EARTH + LUNA", "MARS", "JUPITER", "SATURN"]
+        func dwell(_ kd: Int) -> Double {
+            switch kd { case 3: return 1.55; case 0: return 1.0; case 5: return 1.05; case 6: return 1.15; default: return 0.95 }
+        }
+        let sumW = kinds.reduce(0.0) { $0 + dwell($1) }
+        var acc = 0.0
+        var leg = kinds.count - 1
+        for (i, kd) in kinds.enumerated() {
+            let legDur = dwell(kd) / sumW * dur
+            if t < acc + legDur { leg = i; break }
+            acc += legDur
+        }
+        return names[kinds[leg]]
     }
 
     /// Image index for a scene's texture slot (nil = scene uses no image).
@@ -255,6 +291,16 @@ final class Director {
         case .deepfield:
             speedText = "0.01 c"        // station-keeping while observing
             norm = 0.04
+        case .home:
+            let v = 0.13 + 0.05 * sin(time * 0.09 + seedPhase)
+            speedText = String(format: "%.2f c", v)
+            norm = v + 0.05
+        }
+
+        // during the home-system tour the target names the body being visited
+        var target = current.target
+        if current.kind == .home {
+            target = Director.homeLegName(seed: current.params.x, dur: dur, t: t)
         }
 
         let yaw = (Double(current.params.x) * 47.0).truncatingRemainder(dividingBy: 360.0)
@@ -263,7 +309,7 @@ final class Director {
 
         return HUDInfo(
             sector: current.sector,
-            target: current.target,
+            target: target,
             kind: current.kind,
             progress: prog,
             remaining: max(0, dur - t),
