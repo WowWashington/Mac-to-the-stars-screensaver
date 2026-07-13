@@ -56,6 +56,15 @@ if [[ "${1:-}" == "preview" ]]; then
   ./build/preview Preview
 fi
 
+if [[ "${1:-}" == "gif" ]]; then
+  echo "==> building demo gif renderer"
+  swiftc -O -swift-version 5 -target arm64-apple-macos13 \
+      "${SHARED_SRC[@]}" Tools/demogif/main.swift \
+      -framework Metal -framework MetalKit -framework CoreGraphics -framework ImageIO -framework AppKit -framework QuartzCore \
+      -o build/demogif
+  ./build/demogif "${2:-demo.gif}"
+fi
+
 if [[ "${1:-}" == "install" ]]; then
   DEST="$HOME/Library/Screen Savers"
   mkdir -p "$DEST"

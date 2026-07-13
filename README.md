@@ -9,7 +9,7 @@ Everything you see is computed live on the GPU by a single Metal shader.
 No video files, no asset packs — just math, random seeds, and a handful of
 real NASA archive photographs. No two journeys are ever the same.
 
-![Galaxy approach](docs/img/29_galaxy_photo_mid.png)
+![demo](demo.gif)
 
 ## The journey
 
@@ -19,7 +19,8 @@ you plunge in. From there the ship's course is generated forever:
 
 | | |
 |---|---|
-| ![Terran flyby](docs/img/06_planet_terran.png) | ![Ringed giant](docs/img/07_planet_gas_ring.png) |
+| ![Earth and Moon](docs/img/32_home_earth_hero.png) | ![Black hole](docs/img/14_blackhole_mid.png) |
+| ![Pulsar](docs/img/44_pulsar_mid.png) | ![Ringed giant](docs/img/07_planet_gas_ring.png) |
 | ![Warp](docs/img/10_warp_mid.png) | ![Dyson ring](docs/img/23_dyson_ring.png) |
 | ![Deep field](docs/img/22_deepfield.png) | ![Cockpit HUD](docs/img/16_hud_planet.png) |
 
@@ -31,10 +32,18 @@ you plunge in. From there the ship's course is generated forever:
   visibly orbiting) as you fly through
 - **Warp jumps** between regions — hyperspace streaks and a swirling energy
   tunnel, ending in a flash that reveals a new region with a new color palette
+- **HOME SYSTEM** — a guided tour of our own Solar System: the Sun up close,
+  rocky worlds, Jupiter's bands, Saturn's rings, and a hero pass of Earth —
+  blue marble, night-side city lights — with the Moon alongside
+- **Black holes** — ray-marched Schwarzschild geodesics: real gravitational
+  lensing, the photon ring, a Doppler-beamed accretion disk wrapped over and
+  under the shadow, a relativistic jet, an orbiting hot spot, and a
+  photon-sphere plunge finale
 - **Rare encounters** — Dyson structures in three construction stages
   (Niven ring band, half-built shell, complete sphere with a full fly-through
   over its inner-surface oceans and mountain ranges), Dyson collector swarms,
-  black holes with lensing and accretion disks, comet swarms
+  pulsars sweeping their lighthouse beams inside ripple-shell wind nebulae,
+  asteroid belts with tumbling cratered rocks, comet swarms
 - **Deep-field observations** — slow drifts across real NASA/Hubble/Spitzer
   photographs
 - **Starship HUD** (optional) — edge-only cockpit telemetry: sector and
@@ -90,6 +99,7 @@ the opening galaxy approach.
 ```sh
 ./build.sh preview              # render QA frames of every scene to Preview/
 ./build/preview Preview --bench # GPU cost per scene (ms/frame at QHD)
+./build.sh gif                  # re-render demo.gif highlight reel
 ```
 
 The whole renderer is one Metal fragment shader compiled at runtime
