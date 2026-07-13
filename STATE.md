@@ -97,9 +97,9 @@ Ad-hoc codesigned; locally built so no quarantine/Gatekeeper issues.
 ## What's NOT Implemented (Future Work)
 
 - Configure sheet (speed/scene-mix options)
-- More encounter subtypes: binary stars, asteroid belts w/ rocky silhouettes, nebula pillars, ringworld arcs, pulsars
+- More encounter subtypes: nebula pillars, ringworld arcs (binary stars, pulsars, asteroid belts DONE)
 - Thumbnail shows in System Settings but could be nicer (currently galaxy frame via sips)
-- Git repo / versioning
+- GitHub publish: everything is ready (README + demo.gif committed) — owner pushes deliberately
 
 ---
 
@@ -123,7 +123,13 @@ Local repo only (main branch) — no GitHub remote yet; push deliberately when r
 
 ## Current Status
 
-**Last updated**: 2026-07-12 (improvement loop runs 1-2 of 8: ray-marched Schwarzschild black hole with Doppler disk + orbiting hot spot (1a4394e); scene 6 HOME SYSTEM Solar System tour with Earth+Moon hero pass (326e500); 3 new NASA images (Whirlpool/Sombrero → galaxy pool, Andromeda skyview → deepfield); all 6 pop-in smoothness audit fixes applied — deepfield dolly-in, system spawn depths, dyson swarm/exterior/ring start distances, hero comet envelope, cruise galaxy phase. Installed + selected live.)
-**State**: Active — installed, selected for all displays, verified live on-screen earlier in session
-**Recent changes**: Volumetric ray-marched galaxy (true 3D depth, dust-veil handoff); galaxy entry populated with animated mini solar systems; opening uses real archive Milky Way photos (3-image pool); publicdomainpictures.net CC0 images restored with documented provenance (14 images bundled); Dyson stages + swarm; solar-system transits; starship HUD with Options sheet; MIT LICENSE + CREDITS for GitHub sharing.
-**Next steps**: Owner plans to continue with a cheaper model — CLAUDE.md holds the scene recipe, perf budget, and gotchas; ALWAYS use the `./build.sh preview` + `--bench` loop and view the PNGs before installing. Candidate features: pulsar/asteroid-belt/nebula-pillar encounters; README + demo GIF before GitHub publish (`gh repo create Mac-StarsScreenSaver --public --source . --push`).
+**Last updated**: 2026-07-13 (end of 8-run improvement loop, Fable 5 + Opus 4.8 subagents)
+**State**: Active — installed, selected for all displays. All scenes benched < 9ms at QHD (12ms budget), verified frame-by-frame.
+**Recent changes (the 8-run loop)**:
+1. Black hole rebuilt as ray-marched Schwarzschild geodesics: real lensing, photon ring, Doppler-beamed disk wrapped over/under the shadow, orbiting hot spot; later added a lensed relativistic jet and a photon-sphere plunge finale that banks past the hole.
+2. Scene 6 HOME SYSTEM: tour of our Solar System — Sun (granulation), Mercury/Venus/Mars, Jupiter (rust bands, GRS), Saturn (rings + Cassini gap), hero Earth (70% oceans, clouds, night city lights) + Moon.
+3. New encounters: PULSAR (subtype 4 — misaligned sweeping beams, wind nebula, filamentary ripple shells) and ASTEROID BELT (subtype 5 — parallax rock field, tumbling cratered hero + moonlet).
+4. 5 new NASA images (19 bundled): Whirlpool + Sombrero (galaxy pool), Andromeda skyview, Pillars of Creation, Hubble Ultra Deep Field (deepfield pool).
+5. Two full audits applied: pop-in smoothness (deepfield dolly-in+fade, spawn depths, swarm/exterior/ring start distances, hero comet envelope) and visual polish (asteroid albedo, photo-speckle gamma floor, transit sun beyond flight path, lit-side rim gating, Venus wrapped terminator, jet de-banding, pulse haze concentration, 12-step galaxy march).
+6. Publish prep: README refreshed (demo.gif lead, new scene list, new screenshot grid), demo.gif highlight reel (9.9MB) rendered by new `./build.sh gif` tool.
+**Next steps**: Publish when ready — `gh repo create` or push to the existing remote named in README; everything is committed. Remaining feature ideas: nebula pillars, ringworld arcs, configure-sheet scene-mix options. ALWAYS use the `./build.sh preview` + `--bench` loop and view the PNGs before installing.
