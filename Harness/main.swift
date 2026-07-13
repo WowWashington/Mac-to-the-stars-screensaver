@@ -91,6 +91,7 @@ var cases: [(String, Uniforms)] = [
     ("14_blackhole_mid",   uni(type: .encounter, t: 17, seed: 271, subtype: 1, dur: 30, pal: palBlue)),
     ("14b_blackhole_close", uni(type: .encounter, t: 27, seed: 271, subtype: 1, dur: 30, pal: palBlue)),
     ("14c_blackhole_far",  uni(type: .encounter, t: 4, seed: 88, subtype: 1, dur: 30, pal: palTeal)),
+    ("14d_blackhole_plunge", uni(type: .encounter, t: 29.5, seed: 271, subtype: 1, dur: 30, pal: palBlue)),
     ("15_comets_mid",      uni(type: .encounter, t: 15, seed: 909, subtype: 2, dur: 30, pal: palTeal)),
     // HOME SYSTEM tour (scene 6) — seed 300 walks Sun/Venus/Earth+Moon/Mars/Jupiter/Saturn
     ("30_home_sun_approach", uni(type: .home, t: 3.5, seed: 300, dur: 66, pal: palWarm)),

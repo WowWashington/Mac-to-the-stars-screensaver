@@ -1234,12 +1234,15 @@ float3 blackHoleScene(float2 uv, float t, float seed, float4 pal, float gt, floa
     float prog = clamp(t / dur, 0.0, 1.0);
     float spinDir = hash11(seed * 6.1) > 0.5 ? 1.0 : -1.0;
 
-    // approach from a distant dot to a close pass, then orbit slowly
-    float dist = mix(55.0, 12.0, smoothstep(0.0, 0.8, prog));
+    // approach from a distant dot to a close orbit, then PLUNGE toward the
+    // photon sphere for the finale — the shadow swallows the sky
+    float plunge = smoothstep(0.82, 1.0, prog);
+    float dist = mix(55.0, 12.0, smoothstep(0.0, 0.8, prog)) - 5.7 * plunge;
     float az = gt * 0.045 + seed * 6.28;
     float inc = mix(0.12, 0.40, hash11(seed * 2.3)) + 0.05 * sin(gt * 0.05);
 
     uv = rot2(0.04 * sin(gt * 0.035)) * uv;
+    uv += float2(0.42, 0.10) * plunge;   // bank past the hole, not dead-center into it
     float3 ro = dist * float3(cos(inc) * cos(az), sin(inc), cos(inc) * sin(az));
     float3 fwd = -normalize(ro);
     float3 rgt = normalize(cross(float3(0.0, 1.0, 0.0), fwd));
@@ -1273,6 +1276,18 @@ float3 blackHoleScene(float2 uv, float t, float seed, float4 pal, float gt, floa
             float dt = clamp(r * 0.09, 0.02, 0.35);
             v = normalize(v - 1.5 * h2 * p / (r2 * r2 * r) * dt);
             float3 np = p + v * dt;
+            // relativistic jet: optically-thin bipolar beam along the disk axis,
+            // sampled during the march so its base lenses around the shadow
+            float ay = abs(p.y);
+            float jw = 0.14 + 0.09 * ay;
+            float jr = length(p.xz);
+            if (jr < jw * 2.5 && ay > 0.4 && ay < 7.0) {
+                float knots = 0.55 + 0.45 * noise3(p * 2.1 - float3(0.0, gt * 2.6 * sign(p.y), 0.0));
+                float jd = exp(-(jr * jr) / (jw * jw) * 2.2) * smoothstep(7.0, 1.2, ay)
+                         * smoothstep(0.4, 0.9, ay) * knots;
+                float beam = p.y > 0.0 ? 1.7 : 0.5;      // approaching jet beams brighter
+                col += T * (float3(0.60, 0.72, 1.0) + float3(0.4) * jd) * jd * beam * dt * 1.1;
+            }
             if (p.y * np.y < 0.0 && emCount < 4) {              // disk-plane crossing
                 float3 hit = mix(p, np, p.y / (p.y - np.y));
                 float a;
@@ -1515,12 +1530,12 @@ float3 homeSurface(int kind, float3 ns, float lat, float lon, float gt,
         float turb = fbm(ns * 2.6 + float3(gt * 0.01, 0.0, 0.0) + 9.0, 5);
         float band = sin(lat * 14.0 + turb * 2.2);
         float band2 = sin(lat * 7.0 - turb * 1.6);
-        float3 c1 = float3(0.86, 0.72, 0.50);   // tan zone
-        float3 c2 = float3(0.48, 0.32, 0.20);   // brown belt
-        float3 c3 = float3(0.94, 0.88, 0.76);   // bright zone
-        col = mix(c1, c2, smoothstep(-0.4, 0.4, band));
+        float3 c1 = float3(0.84, 0.66, 0.44);   // tan zone
+        float3 c2 = float3(0.40, 0.23, 0.12);   // deep rust belt
+        float3 c3 = float3(0.95, 0.90, 0.78);   // bright zone
+        col = mix(c1, c2, smoothstep(-0.25, 0.25, band));
         col = mix(col, c3, smoothstep(0.2, 0.9, band2) * 0.5);
-        col *= 0.92 + 0.16 * turb;
+        col *= 0.88 + 0.24 * turb;
         // Great Red Spot in the southern hemisphere
         float slat = -0.34, slon = 1.4;
         float2 sd = float2((lat - slat) * 2.4, sin(lon - slon - gt * 0.008) * cos(lat) * 1.3);
