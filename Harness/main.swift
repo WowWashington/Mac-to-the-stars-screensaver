@@ -98,6 +98,10 @@ var cases: [(String, Uniforms)] = [
     ("44_pulsar_mid",         uni(type: .encounter, t: 16,  seed: 512, subtype: 4, dur: 30, pal: palBlue)),
     ("45_pulsar_close_sweep", uni(type: .encounter, t: 28,  seed: 512, subtype: 4, dur: 30, pal: palWarm)),
     ("46_pulsar_pulse",       uni(type: .encounter, t: 22,  seed: 271, subtype: 4, dur: 30, pal: palBlue)),
+    // ASTEROID BELT (encounter subtype 5) — parallax rock field + hero tumbling rock
+    ("47_asteroid_far",       uni(type: .encounter, t: 4,  seed: 618, subtype: 5, dur: 30, pal: palWarm)),
+    ("48_asteroid_mid",       uni(type: .encounter, t: 15, seed: 618, subtype: 5, dur: 30, pal: palTeal)),
+    ("49_asteroid_hero_close", uni(type: .encounter, t: 15, seed: 903, subtype: 5, dur: 30, pal: palWarm)),
     // HOME SYSTEM tour (scene 6) — seed 300 walks Sun/Venus/Earth+Moon/Mars/Jupiter/Saturn
     ("30_home_sun_approach", uni(type: .home, t: 3.5, seed: 300, dur: 66, pal: palWarm)),
     ("31_home_venus_mid",    uni(type: .home, t: 14.6, seed: 300, dur: 66, pal: palBlue)),
@@ -253,6 +257,7 @@ if CommandLine.arguments.contains("--bench") {
     bench("dyson_swarm", uni(type: .encounter, t: 16, seed: 318, subtype: 3, dur: 32, pal: palTeal))
     bench("comets", uni(type: .encounter, t: 15, seed: 909, subtype: 2, dur: 30, pal: palTeal))
     bench("pulsar", uni(type: .encounter, t: 16, seed: 512, subtype: 4, dur: 30, pal: palBlue))
+    bench("asteroid", uni(type: .encounter, t: 15, seed: 903, subtype: 5, dur: 30, pal: palWarm))
     bench("home_earth", uni(type: .home, t: 27.0, seed: 300, dur: 66, pal: palBlue))
     bench("home_saturn", uni(type: .home, t: 60.0, seed: 300, dur: 66, pal: palWarm))
     var btrans = uni(type: .warp, t: 1.0, seed: 77, dur: 9, pal: palTeal)

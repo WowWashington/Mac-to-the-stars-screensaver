@@ -1482,6 +1482,133 @@ float3 pulsarScene(float2 uv, float t, float seed, float4 pal, float gt, float d
     return col;
 }
 
+// ---------- encounter subtype 5: asteroid belt fly-through ----------
+// A lumpy tumbling rock. fbm roughens a disc rim into an irregular silhouette,
+// ridged noise pocks it with craters, a fake spherical normal lights it from one
+// off-screen sun: bright sunward limb, dark far side, a terminator between.
+// v = offset from centre (same units as R), rot = tumble angle, sun = sunward dir.
+float3 rockBody(float2 v, float R, float rot, float seed, float2 sun, float4 pal,
+                int oct, thread float &cov) {
+    float r = length(v);
+    if (r > R * 1.8) { cov = 0.0; return float3(0.0); }    // cheap bounding reject
+    float2 dir = v / max(r, 1e-5);
+    float2 rdir = rot2(rot) * dir;
+    // irregular rim: low-freq fbm displaces the radius (seam-free around the circle)
+    float lump = fbm(float3(rdir * 1.7 + 4.0, seed * 3.0), oct);
+    float Reff = R * (0.62 + 0.48 * lump);                 // kept < cell so it never clips
+    float aa = fwidth(r) + R * 0.008;
+    cov = smoothstep(Reff + aa, Reff - aa, r);
+    if (cov < 0.002) { cov = 0.0; return float3(0.0); }
+    // fake spherical relief so the disc reads as a solid 3D body
+    float rn = r / Reff;
+    float nz = sqrt(max(1.0 - rn * rn, 0.0));
+    float3 n = normalize(float3(dir * rn * 0.92, nz + 0.14));
+    float3 sun3 = normalize(float3(sun, 0.34));            // grazing -> clear terminator
+    float diff = max(dot(n, sun3), 0.0);
+    // craters + mottling tumble with the body (sampled in its rotated frame)
+    float2 rc = rot2(rot) * v;
+    float crat = ridged(float3(rc * (5.5 / R), seed * 7.0 + 2.0), oct + 1);
+    float pock = smoothstep(0.52, 0.86, crat);
+    float mott = 0.70 + 0.42 * fbm(float3(rc * (3.0 / R), seed), oct);
+    float3 rock = mix(float3(0.20, 0.17, 0.15), float3(0.42, 0.35, 0.28), lump);
+    rock = mix(rock, tint(pal.x, 0.35), 0.15) * mott;
+    rock *= (1.0 - 0.5 * pock);                            // craters darken the body
+    float3 lit = rock * (0.035 + 1.0 * diff);              // faint ambient + lambert
+    // grazing sunward-limb highlight that catches the terminator edge
+    float limb = smoothstep(0.70, 1.0, rn);
+    float rim = limb * pow(max(dot(dir, sun), 0.0), 1.7) * smoothstep(-0.1, 0.35, diff);
+    lit += float3(1.0, 0.86, 0.64) * rim * 0.5;
+    return lit * cov;
+}
+
+float3 asteroidScene(float2 uv, float t, float seed, float4 pal, float gt, float dur) {
+    float prog = clamp(t / dur, 0.0, 1.0);
+    float3 col = spaceBG(uv * 0.85 + seed, seed + 5.0, pal, gt, 0.26);
+
+    // one off-screen sun lights every rock the same way
+    float2 sun = normalize(float2(cos(seed * 2.3) * 0.9, 0.35 + 0.45 * sin(seed * 1.7)));
+    // belts orbit: bodies drift slowly sideways while streaming toward the viewer
+    float2 orbit = normalize(float2(-sun.y, sun.x));
+
+    // optional distant system sun with a soft glow (the light source, made visible)
+    if (hash11(seed * 6.1) > 0.35) {
+        float2 sp = sun * 1.05;                            // just past the frame edge
+        float sd = length(uv - sp);
+        float3 sunCol = mix(float3(1.0, 0.95, 0.85), tint(pal.y, 0.4), 0.3);
+        col += sunCol * (exp(-sd * sd * 300.0) * 1.4 + exp(-sd * 6.0) * 0.09);
+    }
+
+    // ---- far dust + specks: cheap soft motes, depth-cycled, occasional glints ----
+    for (int L = 0; L < 2; L++) {
+        float fl = float(L);
+        float K = 16.0 + fl * 10.0;
+        float ph = fract(fl * 0.37 + hash11(seed + fl) * 0.6 - t * 0.030);
+        float depth = 0.18 + 0.82 * ph;
+        float fade = smoothstep(0.0, 0.12, ph) * smoothstep(1.0, 0.85, ph);
+        if (fade < 0.01) continue;
+        float2 q = uv * depth * K - orbit * t * 0.5 + hash22(float2(fl, seed)) * 20.0;
+        float2 id = floor(q); float2 f = fract(q);
+        float2 rnd = hash22(id * 1.7 + seed * 11.0 + fl * 5.0);
+        if (rnd.x < 0.11) {
+            float2 c = 0.5 + (rnd.yx - 0.5) * 0.7;
+            float d = length(f - c);
+            float g = hash21(id + fl);
+            float3 dc = mix(float3(0.5, 0.46, 0.40), float3(0.80, 0.82, 0.90), g);
+            float glint = 0.8 + 0.7 * pow(0.5 + 0.5 * sin(gt * (1.0 + 3.0 * g) + g * 30.0), 8.0);
+            col += dc * exp(-d * d * 900.0) * 0.5 * fade * glint;
+        }
+    }
+
+    // ---- medium tumbling rocks: sparse single-cell parallax layers ----
+    for (int L = 0; L < 3; L++) {
+        float fl = float(L);
+        float K = 6.5 + fl * 3.2;
+        float ph = fract(fl * 0.31 + hash11(seed * 2.0 + fl) * 0.9 - t * 0.024);
+        float depth = 0.16 + 0.84 * ph;
+        float fade = smoothstep(0.0, 0.13, ph) * smoothstep(1.0, 0.84, ph);
+        if (fade < 0.01) continue;
+        float2 q = uv * depth * K - orbit * t * 0.35 + hash22(float2(fl * 3.1, seed * 9.0)) * 14.0;
+        float2 id = floor(q); float2 f = fract(q);
+        float2 rnd = hash22(id * 1.93 + seed * 17.0 + fl * 7.0);
+        if (rnd.x > 0.075) continue;                       // sparse: belts are mostly empty
+        float2 center = 0.5 + (rnd.yx - 0.5) * 0.26;       // keep the rock inside its cell
+        float2 v = f - center;
+        float rh = hash21(id * 1.31 + seed + fl * 2.0);
+        float R = mix(0.13, 0.25, rh);
+        float rot = gt * mix(0.15, 0.5, hash11(rh * 5.0)) * (rh > 0.5 ? 1.0 : -1.0) + rh * 12.0;
+        float cov;
+        float3 rk = rockBody(v, R, rot, rh * 40.0 + fl, sun, pal, 2, cov);
+        col = mix(col, float3(0.0), cov * 0.85 * fade);    // rock occludes what's behind
+        col += rk * fade * mix(1.15, 0.55, ph);            // distant ones sink toward specks
+    }
+
+    // ---- HERO asteroid: large lumpy rock crosses slowly, grows then exits ----
+    float hside = hash11(seed * 41.0) > 0.5 ? 1.0 : -1.0;
+    float2 h0 = float2(-1.3 * hside, mix(-0.5, -0.2, hash11(seed * 13.0)));
+    float2 h1 = float2( 1.3 * hside, mix( 0.2,  0.5, hash11(seed * 19.0)));
+    float2 hp = mix(h0, h1, smoothstep(0.0, 1.0, prog));
+    float env = sin(3.14159 * prog);                       // 0 at edges, 1 mid = closest
+    float hR = 0.06 + 0.34 * env;                          // enters small, grows, recedes
+    float hrot = gt * 0.22 + seed * 3.0;
+    float hcov;
+    float3 hero = rockBody(uv - hp, hR, hrot, seed * 5.0 + 3.0, sun, pal, 3, hcov);
+    col = mix(col, float3(0.0), hcov * 0.92);              // occlude the background
+    col += hero;
+
+    // a tiny moonlet orbiting the hero (Dimorphos-style)
+    if (hash11(seed * 23.0) > 0.25 && env > 0.02) {
+        float ma = gt * 0.7 + seed * 4.0;
+        float2 moff = rot2(ma) * float2(hR * 1.9, 0.0);
+        moff.y *= 0.5;                                      // inclined orbit
+        float mcov;
+        float3 moon = rockBody(uv - (hp + moff), hR * 0.26, gt * 0.9 + seed,
+                               seed * 8.0 + 1.0, sun, pal, 2, mcov);
+        col = mix(col, float3(0.0), mcov * 0.92);
+        col += moon;
+    }
+    return col;
+}
+
 float3 encounterScene(float2 uv, float t, float4 scn, float4 pal, float gt) {
     int sub = int(scn.y + 0.5);
     float dur = max(scn.w, 1.0);
@@ -1489,6 +1616,7 @@ float3 encounterScene(float2 uv, float t, float4 scn, float4 pal, float gt) {
     if (sub == 1) return blackHoleScene(uv, t, scn.x, pal, gt, dur);
     if (sub == 3) return dysonSwarmScene(uv, t, scn.x, pal, gt, dur);
     if (sub == 4) return pulsarScene(uv, t, scn.x, pal, gt, dur);
+    if (sub == 5) return asteroidScene(uv, t, scn.x, pal, gt, dur);
     return cometScene(uv, t, scn.x, pal, gt, dur);
 }
 
