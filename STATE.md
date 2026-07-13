@@ -123,7 +123,7 @@ Local repo only (main branch) — no GitHub remote yet; push deliberately when r
 
 ## Current Status
 
-**Last updated**: 2026-07-12 (added scene 6 HOME SYSTEM — Solar System tour; not yet installed/committed, in working tree)
+**Last updated**: 2026-07-12 (improvement loop runs 1-2 of 8: ray-marched Schwarzschild black hole with Doppler disk + orbiting hot spot (1a4394e); scene 6 HOME SYSTEM Solar System tour with Earth+Moon hero pass (326e500); 3 new NASA images (Whirlpool/Sombrero → galaxy pool, Andromeda skyview → deepfield); all 6 pop-in smoothness audit fixes applied — deepfield dolly-in, system spawn depths, dyson swarm/exterior/ring start distances, hero comet envelope, cruise galaxy phase. Installed + selected live.)
 **State**: Active — installed, selected for all displays, verified live on-screen earlier in session
 **Recent changes**: Volumetric ray-marched galaxy (true 3D depth, dust-veil handoff); galaxy entry populated with animated mini solar systems; opening uses real archive Milky Way photos (3-image pool); publicdomainpictures.net CC0 images restored with documented provenance (14 images bundled); Dyson stages + swarm; solar-system transits; starship HUD with Options sheet; MIT LICENSE + CREDITS for GitHub sharing.
 **Next steps**: Owner plans to continue with a cheaper model — CLAUDE.md holds the scene recipe, perf budget, and gotchas; ALWAYS use the `./build.sh preview` + `--bench` loop and view the PNGs before installing. Candidate features: pulsar/asteroid-belt/nebula-pillar encounters; README + demo GIF before GitHub publish (`gh repo create Mac-StarsScreenSaver --public --source . --push`).
