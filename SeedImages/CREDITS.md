@@ -20,6 +20,8 @@ and are works of the U.S. Government, not subject to copyright
 | andromeda-skyview-GSFC_e000833~orig.jpg | GSFC_20171208_Archive_e000833 | NASA Goddard — wide sky view toward Andromeda; deepfield pool only (filename deliberately avoids "galaxy"/"milky") |
 | whirlpool-galaxy-GSFC_e001925~large.jpg | GSFC_20171208_Archive_e001925 | NASA/ESA/Hubble (Hubble Heritage) — Whirlpool Galaxy M51 |
 | sombrero-galaxy-PIA15426~large.jpg | PIA15426 | NASA/JPL-Caltech (Spitzer) — Sombrero Galaxy M104, infrared |
+| pillars-of-creation-GSFC_e000842~large.jpg | GSFC_20171208_Archive_e000842 | NASA/ESA/Hubble Heritage (STScI/AURA) — Pillars of Creation, infrared |
+| ultra-deep-field-GSFC_e001061~large.jpg | GSFC_20171208_Archive_e001061 | NASA/ESA (Hubble UDF 2014) — Ultra Deep Field, most colorful view of the universe |
 
 ## Public-domain stock (publicdomainpictures.net, uploader-declared CC0)
 
