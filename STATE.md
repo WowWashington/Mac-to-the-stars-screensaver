@@ -99,7 +99,7 @@ Ad-hoc codesigned; locally built so no quarantine/Gatekeeper issues.
 - Configure sheet (speed/scene-mix options)
 - More encounter subtypes: nebula pillars, ringworld arcs (binary stars, pulsars, asteroid belts DONE)
 - Thumbnail shows in System Settings but could be nicer (currently galaxy frame via sips)
-- GitHub publish: everything is ready (README + demo.gif committed) — owner pushes deliberately
+- Nothing outstanding — publish done (see Current Status)
 
 ---
 
@@ -117,14 +117,14 @@ f0f3e77 note starlayer cost and bench contention caveat in claude.md
 d89afac add options sheet with HUD toggle in system settings
 3b0ebe7 initial release: procedural space screensaver with NASA deep-field scenes
 ```
-Local repo only (main branch) — no GitHub remote yet; push deliberately when ready to publish (`gh repo create Mac-StarsScreenSaver --public --source . --push`). .gitignore excludes build/, Preview/, SeedImages/unverified/. Consider a README + screen-recording GIF before publishing.
+Remote: `origin` → https://github.com/WowWashington/Mac-to-the-stars-screensaver.git (public). Pushed 2026-07-24. .gitignore excludes build/, Preview/, SeedImages/unverified/.
 
 ---
 
 ## Current Status
 
-**Last updated**: 2026-07-13 (end of 8-run improvement loop, Fable 5 + Opus 4.8 subagents)
-**State**: Active — installed, selected for all displays. All scenes benched < 9ms at QHD (12ms budget), verified frame-by-frame.
+**Last updated**: 2026-07-24 (pushed 12 pending commits to GitHub)
+**State**: Active — installed, selected for all displays, and now published on GitHub (origin was already configured from an earlier session; local main had just drifted 12 commits ahead unpushed). All scenes benched < 9ms at QHD (12ms budget), verified frame-by-frame.
 **Recent changes (the 8-run loop)**:
 1. Black hole rebuilt as ray-marched Schwarzschild geodesics: real lensing, photon ring, Doppler-beamed disk wrapped over/under the shadow, orbiting hot spot; later added a lensed relativistic jet and a photon-sphere plunge finale that banks past the hole.
 2. Scene 6 HOME SYSTEM: tour of our Solar System — Sun (granulation), Mercury/Venus/Mars, Jupiter (rust bands, GRS), Saturn (rings + Cassini gap), hero Earth (70% oceans, clouds, night city lights) + Moon.
