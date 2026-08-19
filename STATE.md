@@ -32,6 +32,7 @@ Mac-StarsScreenSaver/
 │   └── HUD.swift            # starship cockpit overlay (CALayers, edge-only telemetry)
 ├── Harness/main.swift       # offscreen renderer -> Preview/*.png for visual QA
 ├── select_saver.py          # patches wallpaper-store Index.plist for ALL displays/spaces
+├── AGENTS.md                # mirror of CLAUDE.md for tools that look for AGENTS.md instead
 ├── LICENSE                  # MIT (code only; images excluded — see note inside)
 ├── SeedImages/              # 14 bundled images: NASA archive (PIA*, hubble*) +
 │   │                        #   publicdomainpictures.net CC0 set (provenance in CREDITS.md);
@@ -123,8 +124,8 @@ Remote: `origin` → https://github.com/WowWashington/Mac-to-the-stars-screensav
 
 ## Current Status
 
-**Last updated**: 2026-07-24 (pushed 12 pending commits to GitHub)
-**State**: Active — installed, selected for all displays, and now published on GitHub (origin was already configured from an earlier session; local main had just drifted 12 commits ahead unpushed). All scenes benched < 9ms at QHD (12ms budget), verified frame-by-frame.
+**Last updated**: 2026-08-18 (nightly checkpoint — committed AGENTS.md)
+**State**: Active — installed, selected for all displays, published on GitHub. All scenes benched < 9ms at QHD (12ms budget), verified frame-by-frame. No feature work this session; only a checkpoint of a stray untracked file (AGENTS.md, byte-identical mirror of CLAUDE.md, appeared 2026-08-18 21:33 from an external tool/process outside any tracked session — content verified harmless before committing).
 **Recent changes (the 8-run loop)**:
 1. Black hole rebuilt as ray-marched Schwarzschild geodesics: real lensing, photon ring, Doppler-beamed disk wrapped over/under the shadow, orbiting hot spot; later added a lensed relativistic jet and a photon-sphere plunge finale that banks past the hole.
 2. Scene 6 HOME SYSTEM: tour of our Solar System — Sun (granulation), Mercury/Venus/Mars, Jupiter (rust bands, GRS), Saturn (rings + Cassini gap), hero Earth (70% oceans, clouds, night city lights) + Moon.
