@@ -1,9 +1,10 @@
 # Seed Image Credits & Provenance
 
-Images in THIS directory are bundled into the screensaver ("deep field"
-scenes). All are sourced from NASA's public archive (https://images.nasa.gov)
-and are works of the U.S. Government, not subject to copyright
-(17 U.S.C. § 105). Used "Courtesy NASA". NASA does not endorse this software.
+Images in this directory are bundled into the screensaver. NASA archive
+images and the previously supplied CC0 stock set are credited separately below.
+Source-specific credits and terms remain attached to each image; NASA archive
+hosting does not make partner contributions part of the code’s MIT license.
+NASA does not endorse this software.
 
 | File | NASA ID | Credit |
 |------|---------|--------|
@@ -49,10 +50,22 @@ their public-domain status.
    protected and may not be redistributed in this project.
 4. No identifiable people (publicity rights).
 5. These images are NOT covered by the project's MIT license and cannot be
-   sublicensed; they remain "Courtesy NASA" public-domain material.
+   sublicensed under MIT; they remain separately credited source material.
 
 ## unverified/
 
 Files in `unverified/` are excluded from the build: `galaxy-full-moon.jpg`
 (composite artwork — clashes with the saver's realism style) and a saved
 NASA webpage whose assets include NASA logos (which must never be bundled).
+
+## NASA archive additions — 2026-09-05
+
+These are telescope observations, not artist concepts. Both files are the
+unmodified `~large.jpg` derivatives from the NASA Image and Video Library;
+neither contains logos, captions, or people. Their credits remain separate
+from the project's MIT code license.
+
+| File | NASA ID / archive record | Credit | Observation and source asset |
+|------|--------------------------|--------|------------------------------|
+| cosmic-cliffs-carina_nebula~large.jpg | [carina_nebula](https://images.nasa.gov/details/carina_nebula) | NASA, ESA, CSA, STScI | Webb NIRCam infrared observation of the Cosmic Cliffs in NGC 3324, Carina Nebula; released July 12, 2022. Color represents infrared measurements. [NASA JPG, 1920 × 1111](https://images-assets.nasa.gov/image/carina_nebula/carina_nebula~large.jpg). |
+| helix-nebula-PIA18164~large.jpg | [PIA18164](https://images.nasa.gov/details/PIA18164) | NASA/STScI | Helix Nebula telescope-observation mosaic combining Hubble with the Kitt Peak Mosaic Camera; mapped emission colors. [NASA JPG, 1920 × 1920](https://images-assets.nasa.gov/image/PIA18164/PIA18164~large.jpg). [NASA catalog description and credit](https://science.nasa.gov/photojournal/iridescent-glory-of-nearby-helix-nebula/). |

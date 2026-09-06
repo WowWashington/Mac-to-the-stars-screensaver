@@ -188,6 +188,8 @@ final class HUDController {
         case .encounter: kindLabel = "ENCOUNTER"
         case .deepfield: kindLabel = "DEEP FIELD OBS"
         case .home:      kindLabel = "HOME SYSTEM"
+        case .rings:     kindLabel = "SATURN EXPEDITION"
+        case .nursery:   kindLabel = "STELLAR NURSERY"
         }
 
         titleL.string  = "GSV ODYSSEY · NAV"

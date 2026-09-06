@@ -23,7 +23,8 @@ Add a harness case in Harness/main.swift for anything new you build.
 5. Harness case → `./build.sh preview` → look → tune → bench → install.
 
 New encounter subtype is even easier: extend `encounterScene()` dispatch (scn.y =
-subtype, scn.z = free per-subtype param) and the subtype ranges in Director.
+subtype, scn.z = free per-subtype param) and the subtype ranges in Director and Renderer (which prebuilds specialized
+pipelines per encounter subtype). SceneKind cases are discovered automatically.
 
 ## Hard-won rules (violating these caused real bugs)
 

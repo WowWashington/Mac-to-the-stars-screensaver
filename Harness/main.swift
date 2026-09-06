@@ -8,6 +8,9 @@ import CoreGraphics
 import ImageIO
 import UniformTypeIdentifiers
 
+// Preserve validation diagnostics even if a later check traps.
+setbuf(stdout, nil)
+
 let outDir = URL(fileURLWithPath: CommandLine.arguments.count > 1
     ? CommandLine.arguments[1] : "Preview", isDirectory: true)
 try? FileManager.default.createDirectory(at: outDir, withIntermediateDirectories: true)
@@ -111,6 +114,36 @@ var cases: [(String, Uniforms)] = [
     ("35_home_mars",         uni(type: .home, t: 39.4, seed: 300, dur: 66, pal: palWarm)),
     ("36_home_earth_moon2",  uni(type: .home, t: 24.5, seed: 300, dur: 66, pal: palBlue)),
 ]
+
+// Expansion QA: arrival, survey, close pass and departure are all represented.
+for (name, tt) in [("50_rings_arrival", Float(5)), ("51_rings_saturn", Float(24)),
+                   ("52_rings_plane", Float(32)), ("52b_rings_plume", Float(40)), ("53_rings_enceladus", Float(48)),
+                   ("54_rings_departure", Float(61))] {
+    cases.append((name, uni(type: .rings, t: tt, seed: 714, dur: 64, pal: palWarm)))
+}
+for (name, tt) in [("55_nursery_far", Float(4)), ("56_nursery_pillars", Float(24)),
+                   ("57_nursery_close", Float(37))] {
+    cases.append((name, uni(type: .nursery, t: tt, seed: 427, dur: 44, pal: palTeal)))
+}
+for (name, tt) in [("58_horizon_arrival", Float(3)), ("59_horizon_survey", Float(21)),
+                   ("60_horizon_inclined", Float(32)), ("61_horizon_close", Float(39.5)),
+                   ("62_horizon_departure", Float(47))] {
+    cases.append((name, uni(type: .encounter, t: tt, seed: 271, subtype: 1, dur: 48, pal: palBlue)))
+}
+cases.append(("63_horizon_reverse_spin", uni(type: .encounter, t: 32, seed: 88, subtype: 1, dur: 48, pal: palTeal)))
+cases.append(("64_dyson_biosphere", uni(type: .encounter, t: 36, seed: 933, subtype: 0, flags: 2, dur: 56, pal: palBlue)))
+cases.append(("65_dyson_architecture", uni(type: .encounter, t: 39, seed: 451, subtype: 0, flags: 2, dur: 56, pal: palWarm)))
+cases.append(("66_nursery_variant", uni(type: .nursery, t: 30, seed: 82, dur: 44, pal: palBlue)))
+cases.append(("67_rings_variant", uni(type: .rings, t: 48, seed: 188, dur: 64, pal: palWarm)))
+for (name, tt) in [("64b_dyson_entry_land", Float(29)), ("64c_dyson_city", Float(33)), ("64d_dyson_sun", Float(41.5))] {
+    cases.append((name, uni(type: .encounter, t: tt, seed: 933, subtype: 0, flags: 2, dur: 56, pal: palBlue)))
+}
+var expeditionFade = uni(type: .nursery, t: 2.25, seed: 427, dur: 44, pal: palTeal)
+expeditionFade.prevSceneType = SceneKind.rings.rawValue
+expeditionFade.scnB = SIMD4(714, 0, 0, 64)
+expeditionFade.prevSceneTime = 66.25
+expeditionFade.transition = 0.5
+cases.append(("68_transition_rings_nursery", expeditionFade))
 
 // one crossfade case: cruise -> warp mid-transition
 var trans = uni(type: .warp, t: 1.0, seed: 77, dur: 9, pal: palTeal)
@@ -221,6 +254,22 @@ do {
     print("deepfield case failed: \(error)")
 }
 
+// Every new archive asset gets an actual deepfield-render case.
+for (name, filename) in [("69_nasa_cosmic_cliffs", "cosmic-cliffs-carina_nebula~large.jpg"),
+                          ("70_nasa_helix", "helix-nebula-PIA18164~large.jpg")] {
+    let url = URL(fileURLWithPath: "SeedImages/" + filename)
+    guard FileManager.default.fileExists(atPath: url.path) else { fatalError("Missing archive asset: \(filename)") }
+    let img = try MTKTextureLoader(device: renderer.device).newTexture(URL: url, options: [.SRGB: false])
+    var u = uni(type: .deepfield, t: 12, seed: 421, dur: 28, pal: palBlue)
+    u.scnA.y = Float(W) / Float(H)
+    u.scnA.z = Float(img.width) / Float(img.height)
+    u.scnB = u.scnA
+    guard let cb = renderer.encode(into: tex, uniforms: u, image: img) else { fatalError("archive encode") }
+    cb.commit(); cb.waitUntilCompleted()
+    if let error = cb.error { fatalError("archive GPU error: \(error)") }
+    writePNG(name)
+}
+
 // ---- GPU cost benchmark at QHD (the saver's render cap) ----
 if CommandLine.arguments.contains("--bench") {
     let bW = 2560, bH = 1440
@@ -238,9 +287,10 @@ if CommandLine.arguments.contains("--bench") {
             u.time += Float(i) * 0.016
             u.sceneTime += Float(i) * 0.016
             u.prevSceneTime += Float(i) * 0.016
-            guard let cb = renderer.encode(into: btex, uniforms: u) else { continue }
+            guard let cb = renderer.encode(into: btex, uniforms: u) else { fatalError("benchmark encode failed") }
             cb.commit()
             cb.waitUntilCompleted()
+            if let error = cb.error { fatalError("benchmark GPU error: \(error)") }
             if i >= 5 { total += (cb.gpuEndTime - cb.gpuStartTime) }
         }
         let label = name.padding(toLength: 24, withPad: " ", startingAt: 0)
@@ -260,6 +310,14 @@ if CommandLine.arguments.contains("--bench") {
     bench("asteroid", uni(type: .encounter, t: 15, seed: 903, subtype: 5, dur: 30, pal: palWarm))
     bench("home_earth", uni(type: .home, t: 27.0, seed: 300, dur: 66, pal: palBlue))
     bench("home_saturn", uni(type: .home, t: 60.0, seed: 300, dur: 66, pal: palWarm))
+    bench("horizon_close", uni(type: .encounter, t: 39.5, seed: 271, subtype: 1, dur: 48, pal: palBlue))
+    bench("rings_saturn", uni(type: .rings, t: 22, seed: 714, dur: 64, pal: palWarm))
+    bench("rings_plane", uni(type: .rings, t: 36, seed: 714, dur: 64, pal: palWarm))
+    bench("rings_enceladus", uni(type: .rings, t: 48, seed: 714, dur: 64, pal: palWarm))
+    bench("nursery_pillars", uni(type: .nursery, t: 24, seed: 427, dur: 44, pal: palTeal))
+    bench("nursery_close", uni(type: .nursery, t: 37, seed: 427, dur: 44, pal: palTeal))
+    bench("dyson_architecture", uni(type: .encounter, t: 39, seed: 451, subtype: 0, flags: 2, dur: 56, pal: palWarm))
+    bench("expedition_transition", expeditionFade)
     var btrans = uni(type: .warp, t: 1.0, seed: 77, dur: 9, pal: palTeal)
     btrans.prevSceneType = SceneKind.planet.rawValue
     btrans.scnB = SIMD4(251, 1, 1, 42)
@@ -275,3 +333,148 @@ writeHUDComposite("17_hud_warp",
                   speedText: "2.51e+04 c", speedNorm: 0.8, yaw: 12.9, pitch: -7.7),
     time: 1204.1)
 print("done")
+
+// Verify that specializing scenes and mixing them in HDR preserves presentation.
+// Tiny readback targets keep this a quick correctness check, independent of QHD
+// timing. This checks outputs rather than duplicating the renderer's blend math.
+if CommandLine.arguments.contains("--verify-renderer") {
+    let testWidth = 128, testHeight = 72
+    let outputDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+        pixelFormat: .bgra8Unorm, width: testWidth, height: testHeight, mipmapped: false)
+    outputDescriptor.storageMode = .shared
+    outputDescriptor.usage = [.renderTarget]
+    guard let output = renderer.device.makeTexture(descriptor: outputDescriptor) else {
+        fatalError("renderer verification: output texture allocation failed")
+    }
+    // An in-memory color chart makes the image route nontrivial without adding
+    // an asset or depending on a particular photograph's brightness.
+    let imageDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+        pixelFormat: .bgra8Unorm, width: 16, height: 16, mipmapped: false)
+    imageDescriptor.storageMode = .shared
+    imageDescriptor.usage = [.shaderRead]
+    guard let image = renderer.device.makeTexture(descriptor: imageDescriptor) else {
+        fatalError("renderer verification: source texture allocation failed")
+    }
+    var chart = [UInt8](repeating: 255, count: 16 * 16 * 4)
+    for y in 0..<16 {
+        for x in 0..<16 {
+            let offset = (y * 16 + x) * 4
+            chart[offset] = UInt8(x * 13 + 20)
+            chart[offset + 1] = UInt8(y * 11 + 25)
+            chart[offset + 2] = UInt8((x + y) * 7 + 15)
+        }
+    }
+    image.replace(region: MTLRegionMake2D(0, 0, 16, 16), mipmapLevel: 0,
+                  withBytes: &chart, bytesPerRow: 16 * 4)
+
+    func verificationPixels(_ base: Uniforms) -> [UInt8] {
+        var u = base
+        u.resolution = SIMD2(Float(testWidth), Float(testHeight))
+        guard let command = renderer.encode(into: output, uniforms: u, image: image) else {
+            fatalError("renderer verification: encode failed")
+        }
+        command.commit()
+        command.waitUntilCompleted()
+        guard command.status == .completed && command.error == nil else {
+            fatalError("renderer verification: GPU error \(String(describing: command.error))")
+        }
+        var bytes = [UInt8](repeating: 0, count: testWidth * testHeight * 4)
+        output.getBytes(&bytes, bytesPerRow: testWidth * 4,
+                        from: MTLRegionMake2D(0, 0, testWidth, testHeight), mipmapLevel: 0)
+        return bytes
+    }
+
+    var verificationFailures: [String] = []
+    func comparePresentation(_ name: String, _ lhs: [UInt8], _ rhs: [UInt8],
+                             maxAllowed: Int? = nil, meanAllowed: Double = 0.2) {
+        guard lhs.count == rhs.count else { fatalError("renderer verification: readback sizes differ") }
+        var maximum = 0
+        var total = 0
+        var channels = 0
+        var largeDifferences = 0
+        var affectedPixels = Set<Int>()
+        for index in lhs.indices {
+            let difference = abs(Int(lhs[index]) - Int(rhs[index]))
+            maximum = max(maximum, difference)
+            if index % 4 != 3 {
+                total += difference
+                channels += 1
+                if difference > 4 {
+                    largeDifferences += 1
+                    affectedPixels.insert(index / 4)
+                }
+            }
+        }
+        let mean = Double(total) / Double(channels)
+        let largeFraction = Double(largeDifferences) / Double(channels)
+        let pixelFraction = Double(affectedPixels.count) / Double(lhs.count / 4)
+        // The two specialized programs may reassociate floating-point work.
+        // Tiny changes can move a procedural hash, star edge or ray-march
+        // sample across a boundary, so maximum error alone is misleading.
+        // Bound total error to <0.08% of display range, and require 99.8% of
+        // RGB channels to differ by no more than 4/255. Endpoint selection
+        // uses the same program and retains its separate strict maximum.
+        let passes = mean <= meanAllowed && largeFraction <= 0.002
+                  && (maxAllowed.map { maximum <= $0 } ?? true)
+        let summary = String(format: "%@ max=%d mean=%.4f >4=%d/%.4f%% channels (%.4f%% pixels)",
+                             name, maximum, mean, largeDifferences, largeFraction * 100, pixelFraction * 100)
+        print("verify renderer \(passes ? "PASS" : "FAIL") \(summary)")
+        if !passes {
+            verificationFailures.append(summary)
+        }
+    }
+
+    var routes: [(String, Uniforms)] = [
+        ("cruise", uni(type: .cruise, t: 12, seed: 137, subtype: 1, pal: palBlue)),
+        ("galaxy", uni(type: .galaxy, t: 20, seed: 412, dur: 32, pal: palTeal)),
+        ("system", uni(type: .planet, t: 20, seed: 251, subtype: 1, flags: 1, dur: 42, pal: palWarm)),
+        ("warp", uni(type: .warp, t: 4.5, seed: 77, dur: 9, pal: palTeal)),
+        ("archive", uni(type: .deepfield, t: 12, seed: 421, dur: 28, pal: palBlue)),
+        ("home", uni(type: .home, t: 27, seed: 300, dur: 66, pal: palBlue)),
+        ("rings", uni(type: .rings, t: 36, seed: 714, dur: 64, pal: palWarm)),
+        ("nursery", uni(type: .nursery, t: 24, seed: 427, dur: 44, pal: palTeal))
+    ]
+    for subtype in 0...5 {
+        routes.append(("encounter \(subtype)",
+                       uni(type: .encounter, t: 23, seed: 271, subtype: Float(subtype),
+                           dur: 40, pal: palBlue)))
+    }
+    routes.append(("dyson interior", uni(type: .encounter, t: 39, seed: 451,
+                                         subtype: 0, flags: 2, dur: 56, pal: palWarm)))
+    for (name, base) in routes {
+        var direct = base
+        if direct.sceneType == SceneKind.deepfield.rawValue {
+            direct.scnA.y = Float(testWidth) / Float(testHeight)
+            direct.scnA.z = 1
+        }
+        direct.scnB = direct.scnA
+        direct.palB = direct.palA
+        direct.prevSceneType = direct.sceneType
+        direct.prevSceneTime = direct.sceneTime
+        direct.transition = 1
+        var selfFade = direct
+        selfFade.transition = 0.37
+        comparePresentation(name, verificationPixels(direct), verificationPixels(selfFade))
+    }
+
+    let previous = uni(type: .rings, t: 36, seed: 714, dur: 64, pal: palWarm, gt: 73)
+    let current = uni(type: .nursery, t: 24, seed: 427, dur: 44, pal: palTeal, gt: 73)
+    var transition = current
+    transition.prevSceneType = previous.sceneType
+    transition.scnB = previous.scnA
+    transition.palB = previous.palA
+    transition.prevSceneTime = previous.sceneTime
+    transition.transition = 0
+    comparePresentation("previous endpoint", verificationPixels(previous), verificationPixels(transition),
+                         maxAllowed: 1, meanAllowed: 0.05)
+    transition.transition = 1
+    comparePresentation("current endpoint", verificationPixels(current), verificationPixels(transition),
+                         maxAllowed: 1, meanAllowed: 0.05)
+    if !verificationFailures.isEmpty {
+        let report = "Renderer verification failed after checking all routes:\n"
+                   + verificationFailures.joined(separator: "\n") + "\n"
+        FileHandle.standardError.write(Data(report.utf8))
+        exit(1)
+    }
+    print("renderer verification passed: 15 specialized routes and both crossfade endpoints")
+}

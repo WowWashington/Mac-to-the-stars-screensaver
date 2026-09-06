@@ -64,12 +64,22 @@ if FileManager.default.fileExists(atPath: "SeedImages/PIA10748-milkyway~large.jp
 // 2. home system: Earth + Moon hero pass
 clips.append(Clip(base: uni(type: .home, t: 0, seed: 300, dur: 66, pal: palBlue),
                   t0: 23, t1: 29))
-// 3. black hole: orbit with jet, then the plunge
-clips.append(Clip(base: uni(type: .encounter, t: 0, seed: 271, subtype: 1, dur: 30, pal: palBlue),
-                  t0: 18, t1: 29.5))
-// 4. warp out
+// 3. Saturn ring survey and Enceladus's south-polar ice plumes.
+clips.append(Clip(base: uni(type: .rings, t: 0, seed: 714, dur: 64, pal: palWarm),
+                  t0: 22, t1: 27))
+clips.append(Clip(base: uni(type: .rings, t: 0, seed: 714, dur: 64, pal: palWarm),
+                  t0: 43, t1: 48))
+// 4. Inhabited inner shell, with a genuinely three-dimensional city overflight.
+clips.append(Clip(base: uni(type: .encounter, t: 0, seed: 933, subtype: 0, flags: 2, dur: 56, pal: palBlue),
+                  t0: 31, t1: 36))
+// 5. Inclined accretion-disk survey, before the closest bank.
+clips.append(Clip(base: uni(type: .encounter, t: 0, seed: 271, subtype: 1, dur: 48, pal: palBlue),
+                  t0: 24, t1: 30))
+// 6. Volumetric stellar nursery.
+clips.append(Clip(base: uni(type: .nursery, t: 0, seed: 427, dur: 44, pal: palTeal),
+                  t0: 24, t1: 28))
 clips.append(Clip(base: uni(type: .warp, t: 0, seed: 77, dur: 9, pal: palTeal),
-                  t0: 2, t1: 7))
+                  t0: 3, t1: 6))
 
 let totalFrames = clips.reduce(0) { $0 + Int(($1.t1 - $1.t0) * FPS) }
 print("rendering \(totalFrames) frames at \(W)x\(H) @\(Int(FPS))fps")
@@ -101,6 +111,7 @@ for clip in clips {
         }
         cb.commit()
         cb.waitUntilCompleted()
+        if let error = cb.error { fatalError("GPU render error: \(error)") }
         var bytes = [UInt8](repeating: 0, count: W * H * 4)
         tex.getBytes(&bytes, bytesPerRow: W * 4,
                      from: MTLRegionMake2D(0, 0, W, H), mipmapLevel: 0)

@@ -14,8 +14,8 @@ struct SplitMix64: RandomNumberGenerator {
     }
 }
 
-enum SceneKind: Int32 {
-    case cruise = 0, galaxy = 1, planet = 2, warp = 3, encounter = 4, deepfield = 5, home = 6
+enum SceneKind: Int32, CaseIterable {
+    case cruise = 0, galaxy = 1, planet = 2, warp = 3, encounter = 4, deepfield = 5, home = 6, rings = 7, nursery = 8
 }
 
 struct SceneSpec {
@@ -46,7 +46,7 @@ final class Director {
     init(seed: UInt64 = .random(in: .min ... .max), imageAspects: [Float] = [],
          galaxyImages: [Int] = []) {
         self.imageAspects = imageAspects
-        self.galaxyImages = galaxyImages
+        self.galaxyImages = galaxyImages.filter { imageAspects.indices.contains($0) }
         var r = SplitMix64(state: seed)
         // opening palette: classic Milky Way blues/silvers
         var pal = Director.makePalette(&r)
@@ -59,14 +59,22 @@ final class Director {
         first.sector = "ORION SPUR · MILKY WAY"
         first.target = "SPIRAL GALAXY · HOME"
         // the opening uses the real Milky Way archive image when available
-        if let gi = galaxyImages.randomElement(using: &r), gi < imageAspects.count {
+        if let gi = self.galaxyImages.randomElement(using: &r) {
             first.params.y = Float(gi + 1)
             first.params.z = imageAspects[gi]
         }
         rng = r
         current = first
         previous = first
-        queue = makeRegionTail(palette: pal, sector: first.sector)
+        // Follow the opening galaxy with one signature expedition so long
+        // journeys are discoverable without waiting for a rare random draw.
+        let feature = Int.random(in: 0...2, using: &rng)
+        var expedition = Director.makeScene(feature == 0 ? .rings : .encounter, palette: pal, rng: &rng)
+        if feature == 1 { expedition.params.y = 0; expedition.params.z = 2; expedition.params.w = 58 }
+        if feature == 2 { expedition.params.y = 1; expedition.params.z = 0; expedition.params.w = 48 }
+        expedition.sector = first.sector
+        expedition.target = Director.makeTargetName(expedition.kind, subtype: Int(expedition.params.y), rng: &rng)
+        queue = [expedition] + makeRegionTail(palette: pal, sector: first.sector, precedingKind: expedition.kind)
     }
 
     // MARK: scene construction
@@ -111,6 +119,8 @@ final class Director {
                 flags = Float(stage)
                 duration = stage == 2 ? Float.random(in: 52...62, using: &r)   // full journey
                                       : Float.random(in: 28...38, using: &r)
+            } else if subtype == 1 {
+                duration = Float.random(in: 44...52, using: &r)
             } else {
                 duration = Float.random(in: 26...36, using: &r)
             }
@@ -119,6 +129,10 @@ final class Director {
         case .home:
             // a full tour of our Solar System, one body at a time
             duration = Float.random(in: 62...74, using: &r)
+        case .rings:
+            duration = Float.random(in: 58...68, using: &r)
+        case .nursery:
+            duration = Float.random(in: 38...48, using: &r)
         }
         return SceneSpec(kind: kind, params: SIMD4(seed, subtype, flags, duration), palette: palette)
     }
@@ -135,24 +149,21 @@ final class Director {
         return scenes
     }
 
-    private func makeRegionTail(palette: SIMD4<Float>, sector: String) -> [SceneSpec] {
+    private func makeRegionTail(palette: SIMD4<Float>, sector: String, precedingKind: SceneKind = .warp) -> [SceneSpec] {
         var scenes: [SceneSpec] = []
         let count = Int.random(in: 2...3, using: &rng)
-        var lastKind: SceneKind = .warp
+        var lastKind = precedingKind
         var homeUsed = false           // the home-system tour appears at most once per region
         for _ in 0..<count {
             var kind: SceneKind
             let canDeepfield = !imageAspects.isEmpty
             repeat {
                 let roll = Float.random(in: 0...1, using: &rng)
-                if canDeepfield {
-                    kind = roll < 0.20 ? .cruise : roll < 0.44 ? .galaxy : roll < 0.72 ? .planet
-                         : roll < 0.84 ? .encounter : roll < 0.92 ? .home : .deepfield
-                } else {
-                    kind = roll < 0.23 ? .cruise : roll < 0.49 ? .galaxy : roll < 0.79 ? .planet
-                         : roll < 0.90 ? .encounter : .home
-                }
-            } while kind == lastKind || (kind == .home && homeUsed)   // no repeats back-to-back or twice-per-region
+                kind = roll < 0.11 ? .cruise : roll < 0.27 ? .galaxy : roll < 0.45 ? .planet
+                     : roll < 0.65 ? .encounter : roll < 0.75 ? .home : roll < 0.87 ? .rings
+                     : roll < 0.95 || !canDeepfield ? .nursery : .deepfield
+            } while kind == lastKind || (kind == .home && homeUsed)
+                || (scenes.isEmpty && precedingKind == .galaxy && kind == .deepfield)   // no repeats back-to-back or twice-per-region
             lastKind = kind
             if kind == .home { homeUsed = true }
             var scene = Director.makeScene(kind, palette: palette, rng: &rng)
@@ -219,6 +230,10 @@ final class Director {
             return "ARCHIVE OBSERVATION"
         case .home:
             return "SOL · HOME SYSTEM"
+        case .rings:
+            return "SATURN · CASSINI EXPEDITION"
+        case .nursery:
+            return "STELLAR NURSERY · DUST PILLARS"
         }
     }
 
@@ -295,12 +310,26 @@ final class Director {
             let v = 0.13 + 0.05 * sin(time * 0.09 + seedPhase)
             speedText = String(format: "%.2f c", v)
             norm = v + 0.05
+        case .rings:
+            speedText = prog < 0.38 ? "SATURN APPROACH" : prog < 0.70 ? "RING SURVEY" : "PLUME SURVEY"
+            norm = 0.12
+        case .nursery:
+            speedText = "DUST TRANSIT"
+            norm = 0.08
         }
 
         // during the home-system tour the target names the body being visited
         var target = current.target
         if current.kind == .home {
             target = Director.homeLegName(seed: current.params.x, dur: dur, t: t)
+        } else if current.kind == .rings {
+            target = prog < 0.28 ? "SATURN · RINGED WORLD" : prog < 0.53 ? "CASSINI DIVISION · RING PLANE" : prog < 0.70 ? "ENCELADUS · SOUTH POLAR APPROACH" : prog < 0.86 ? "TIGER STRIPES · ICE PLUME TRANSIT" : "SATURN SYSTEM · DEPARTURE"
+        } else if current.kind == .nursery {
+            target = prog < 0.45 ? "STELLAR NURSERY · APPROACH" : "IONIZATION FRONT · DUST PILLARS"
+        } else if current.kind == .encounter && Int(current.params.y) == 1 {
+            target = prog < 0.30 ? "SINGULARITY · APPROACH" : prog < 0.64 ? "ACCRETION DISK · LENSING SURVEY" : prog < 0.84 ? "PHOTON RING · CLOSE PASS" : "SINGULARITY · ESCAPE ARC"
+        } else if current.kind == .encounter && Int(current.params.y) == 0 && current.params.z > 1.5 {
+            target = prog < 0.38 ? "DYSON SHELL · ARRIVAL" : prog < 0.47 ? "ACCESS BORE · ENTRY" : prog < 0.76 ? "INNER BIOSPHERE · HABITAT SURVEY" : "DYSON SHELL · DEPARTURE"
         }
 
         let yaw = (Double(current.params.x) * 47.0).truncatingRemainder(dividingBy: 360.0)
