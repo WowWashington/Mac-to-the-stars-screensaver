@@ -148,4 +148,23 @@ Remote: `origin` → https://github.com/WowWashington/Mac-to-the-stars-screensav
 - https://github.com/WowWashington/Mac-to-the-stars-screensaver/issues/1 — Europa ice flight / Jovian eclipse.
 - https://github.com/WowWashington/Mac-to-the-stars-screensaver/issues/2 — flight preferences / deterministic preview CLI.
 - Issue bodies are also saved as `docs/roadmap-europa.md` and `docs/roadmap-flight-controls.md` for a Claude handoff. No messages were sent to Claude.
-- Review and publish this local expansion when desired. Follow the render→view→bench→install loop in AGENTS.md.
+- The September expansion is already committed and pushed at `c302ae2`; there is no remaining publish reminder for that expansion.
+
+### September 19 contributor handoff review
+
+Reviewed the existing Claude issue handoff and current GitHub issues #1 and #2.
+The latest human request was to check those issues; the subsequent checkpoint
+found no new implementation. Both issues remain open and there is no feature PR.
+Local main and origin/main both resolve to `c302ae2` with a clean working tree.
+
+Selected next contributor issue: **#2, flight preferences and reproducible scene
+previews**. This coach selection uses the delegated checklist review; it is not
+a claim that the owner previously selected #2. Reproducible scene/seed/time
+previews and Director checks provide a useful verification foundation for the
+later Europa work. Issue #1 remains in the existing backlog; no duplicate issue
+or additional build is needed for this handoff.
+
+The September validation above remains historical evidence. This documentation
+review did not rebuild, install, or re-test the screensaver or implement either
+feature. Follow AGENTS.md's render/view/benchmark procedure when implementation
+resumes, with installation reviewed separately.
